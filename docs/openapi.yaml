@@ -1,0 +1,1155 @@
+openapi: 3.0.3
+info:
+  title: Mitch Hospitality SaaS API
+  description: |
+    Multi-tenant hospitality AI platform API for restaurants and street food vendors.
+
+    ## Authentication
+    All protected endpoints require a Bearer token in the Authorization header.
+    Tokens are obtained via the `/auth/login` endpoint or during onboarding.
+
+    ## Multi-Tenancy
+    The API uses PostgreSQL Row-Level Security (RLS) for tenant isolation.
+    Each request is automatically scoped to the authenticated tenant.
+
+    ## Rate Limiting
+    Rate limits are enforced per-tenant based on subscription tier:
+    - **Starter**: 100 requests/minute
+    - **Professional**: 500 requests/minute
+    - **Enterprise**: 2000 requests/minute
+
+    ## Request Tracking
+    All requests include an `X-Request-ID` header for tracing and support.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@mitch-ai.com
+  license:
+    name: Proprietary
+    url: https://mitch-ai.com/terms
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Development server
+  - url: https://api.mitch-ai.com/api/v1
+    description: Production server
+
+tags:
+  - name: Health
+    description: System health and status
+  - name: Authentication
+    description: User authentication and registration
+  - name: Tenant
+    description: Tenant management and settings
+  - name: Locations
+    description: Restaurant location management
+  - name: Menu
+    description: Menu items and categories
+  - name: Orders
+    description: Order management
+  - name: Reservations
+    description: Table reservations
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Check API health
+      description: Returns the health status of the API and its dependencies
+      operationId: getHealth
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                timestamp: '2024-01-15T10:30:00.000Z'
+                services:
+                  database: up
+                  redis: up
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /onboard:
+    post:
+      tags:
+        - Authentication
+      summary: Register new tenant
+      description: |
+        Create a new tenant account with Stripe subscription.
+        This endpoint handles the complete onboarding flow including:
+        - Tenant creation
+        - Admin user creation
+        - Stripe customer and subscription setup
+        - JWT token generation
+      operationId: onboardTenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardRequest'
+            example:
+              businessName: "Mitch's Street Food"
+              email: admin@mitchstreetfood.com
+              password: SecurePass123!
+              firstName: Mitch
+              lastName: Owner
+              phone: '+1234567890'
+              tierId: professional
+              paymentMethodId: pm_card_visa
+      responses:
+        '201':
+          description: Tenant created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate user
+      description: Authenticate a user and receive a JWT access token
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: admin@mitchstreetfood.com
+              password: SecurePass123!
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '423':
+          description: Account locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountLockedResponse'
+
+  /tenant:
+    get:
+      tags:
+        - Tenant
+      summary: Get current tenant
+      description: Retrieve the authenticated tenant's information
+      operationId: getTenant
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Tenant information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags:
+        - Tenant
+      summary: Update tenant settings
+      description: Update the authenticated tenant's settings
+      operationId: updateTenant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantRequest'
+      responses:
+        '200':
+          description: Tenant updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tenant/export:
+    post:
+      tags:
+        - Tenant
+      summary: Request data export
+      description: |
+        Request a GDPR-compliant data export.
+        Supported formats: JSON, CSV, SQL
+        Export types: full, orders, menu, customers, reservations
+      operationId: requestExport
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+            example:
+              format: json
+              type: full
+      responses:
+        '202':
+          description: Export request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tenant/export/{exportId}:
+    get:
+      tags:
+        - Tenant
+      summary: Get export status
+      description: Check the status of a data export request
+      operationId: getExportStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: exportId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Export status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportStatusResponse'
+        '404':
+          description: Export not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /locations:
+    get:
+      tags:
+        - Locations
+      summary: List locations
+      description: Get all locations for the authenticated tenant
+      operationId: getLocations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of locations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Locations
+      summary: Create location
+      description: Create a new location for the authenticated tenant
+      operationId: createLocation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLocationRequest'
+            example:
+              name: Downtown Food Truck
+              address: '123 Main St'
+              city: Los Angeles
+              state: CA
+              postalCode: '90001'
+              country: US
+              phone: '+1234567890'
+              timezone: America/Los_Angeles
+      responses:
+        '201':
+          description: Location created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Location limit reached for tier
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /menu:
+    get:
+      tags:
+        - Menu
+      summary: List menu items
+      description: Get all menu items for the authenticated tenant
+      operationId: getMenuItems
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by category
+        - name: locationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by location
+        - name: available
+          in: query
+          schema:
+            type: boolean
+          description: Filter by availability
+      responses:
+        '200':
+          description: List of menu items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  menuItems:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MenuItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Menu
+      summary: Create menu item
+      description: Create a new menu item
+      operationId: createMenuItem
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMenuItemRequest'
+            example:
+              name: Signature Burger
+              description: Our famous double patty burger with special sauce
+              price: 12.99
+              categoryId: 550e8400-e29b-41d4-a716-446655440000
+              allergens:
+                - gluten
+                - dairy
+              preparationTime: 15
+              calories: 850
+      responses:
+        '201':
+          description: Menu item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MenuItem'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /orders:
+    get:
+      tags:
+        - Orders
+      summary: List orders
+      description: Get all orders for the authenticated tenant
+      operationId: getOrders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, preparing, ready, delivered, cancelled]
+          description: Filter by status
+        - name: locationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by location
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter from date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter to date
+      responses:
+        '200':
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Orders
+      summary: Create order
+      description: Create a new order
+      operationId: createOrder
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+            example:
+              locationId: 550e8400-e29b-41d4-a716-446655440000
+              customerId: 550e8400-e29b-41d4-a716-446655440001
+              orderType: dine_in
+              tableId: 550e8400-e29b-41d4-a716-446655440002
+              items:
+                - menuItemId: 550e8400-e29b-41d4-a716-446655440003
+                  quantity: 2
+                  notes: No onions
+              notes: Birthday celebration
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /reservations:
+    get:
+      tags:
+        - Reservations
+      summary: List reservations
+      description: Get all reservations for the authenticated tenant
+      operationId: getReservations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, seated, completed, cancelled, no_show]
+          description: Filter by status
+        - name: locationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by location
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter by date
+      responses:
+        '200':
+          description: List of reservations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reservation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Reservations
+      summary: Create reservation
+      description: Create a new table reservation
+      operationId: createReservation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReservationRequest'
+            example:
+              locationId: 550e8400-e29b-41d4-a716-446655440000
+              customerName: John Smith
+              customerEmail: john@example.com
+              customerPhone: '+1234567890'
+              partySize: 4
+              reservationTime: '2024-01-20T19:00:00Z'
+              notes: Anniversary dinner
+      responses:
+        '201':
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login or onboarding
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: fail
+            requestId: 550e8400-e29b-41d4-a716-446655440000
+            message: Invalid token. Please log in again!
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        services:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [up, down]
+            redis:
+              type: string
+              enum: [up, down]
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [fail, error]
+        requestId:
+          type: string
+          format: uuid
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    OnboardRequest:
+      type: object
+      required:
+        - businessName
+        - email
+        - password
+        - firstName
+        - lastName
+        - tierId
+      properties:
+        businessName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          description: Must contain uppercase, lowercase, number, and special character
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        phone:
+          type: string
+        tierId:
+          type: string
+          enum: [starter, professional, enterprise]
+        paymentMethodId:
+          type: string
+          description: Stripe payment method ID
+
+    OnboardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        tenant:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            slug:
+              type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+        accessToken:
+          type: string
+        stripe:
+          type: object
+          properties:
+            customerId:
+              type: string
+            subscriptionId:
+              type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            firstName:
+              type: string
+            lastName:
+              type: string
+            role:
+              type: string
+              enum: [owner, admin, manager, staff]
+        tenant:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            slug:
+              type: string
+
+    AccountLockedResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        lockedUntil:
+          type: string
+          format: date-time
+
+    TenantResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        businessName:
+          type: string
+        slug:
+          type: string
+        status:
+          type: string
+          enum: [active, trial, suspended, canceled]
+        tier:
+          type: string
+          enum: [starter, professional, enterprise]
+        settings:
+          type: object
+        locationCount:
+          type: integer
+        userCount:
+          type: integer
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        businessName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        settings:
+          type: object
+          properties:
+            timezone:
+              type: string
+            currency:
+              type: string
+            language:
+              type: string
+
+    ExportRequest:
+      type: object
+      required:
+        - format
+      properties:
+        format:
+          type: string
+          enum: [json, csv, sql]
+        type:
+          type: string
+          enum: [full, orders, menu, customers, reservations]
+          default: full
+
+    ExportResponse:
+      type: object
+      properties:
+        exportId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        estimatedTime:
+          type: integer
+          description: Estimated time in seconds
+
+    ExportStatusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        format:
+          type: string
+        type:
+          type: string
+        downloadUrl:
+          type: string
+          format: uri
+          description: Pre-signed URL (only when completed)
+        expiresAt:
+          type: string
+          format: date-time
+        error:
+          type: string
+          description: Error message (only when failed)
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postalCode:
+          type: string
+        country:
+          type: string
+        phone:
+          type: string
+        timezone:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateLocationRequest:
+      type: object
+      required:
+        - name
+        - address
+        - city
+        - country
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        address:
+          type: string
+          maxLength: 200
+        city:
+          type: string
+          maxLength: 100
+        state:
+          type: string
+          maxLength: 100
+        postalCode:
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 2
+          description: ISO 3166-1 alpha-2 country code
+        phone:
+          type: string
+        timezone:
+          type: string
+          default: UTC
+
+    MenuItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        aiDescription:
+          type: string
+          description: AI-generated description
+        price:
+          type: number
+          format: decimal
+        categoryId:
+          type: string
+          format: uuid
+        categoryName:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+        allergens:
+          type: array
+          items:
+            type: string
+        preparationTime:
+          type: integer
+          description: Preparation time in minutes
+        calories:
+          type: integer
+        isAvailable:
+          type: boolean
+        stockQuantity:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateMenuItemRequest:
+      type: object
+      required:
+        - name
+        - price
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        price:
+          type: number
+          minimum: 0
+        categoryId:
+          type: string
+          format: uuid
+        imageUrl:
+          type: string
+          format: uri
+        allergens:
+          type: array
+          items:
+            type: string
+            enum: [gluten, dairy, nuts, eggs, soy, fish, shellfish, sesame]
+        preparationTime:
+          type: integer
+          minimum: 0
+          description: Preparation time in minutes
+        calories:
+          type: integer
+          minimum: 0
+        isAvailable:
+          type: boolean
+          default: true
+        stockQuantity:
+          type: integer
+          minimum: 0
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: string
+        locationId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, confirmed, preparing, ready, delivered, cancelled]
+        orderType:
+          type: string
+          enum: [dine_in, takeout, delivery]
+        tableId:
+          type: string
+          format: uuid
+        subtotal:
+          type: number
+        tax:
+          type: number
+        total:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        menuItemId:
+          type: string
+          format: uuid
+        menuItemName:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+        totalPrice:
+          type: number
+        notes:
+          type: string
+
+    CreateOrderRequest:
+      type: object
+      required:
+        - locationId
+        - items
+      properties:
+        locationId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        orderType:
+          type: string
+          enum: [dine_in, takeout, delivery]
+          default: dine_in
+        tableId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - menuItemId
+              - quantity
+            properties:
+              menuItemId:
+                type: string
+                format: uuid
+              quantity:
+                type: integer
+                minimum: 1
+              notes:
+                type: string
+        notes:
+          type: string
+
+    Reservation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        tableId:
+          type: string
+          format: uuid
+        customerName:
+          type: string
+        customerEmail:
+          type: string
+          format: email
+        customerPhone:
+          type: string
+        partySize:
+          type: integer
+        reservationTime:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, confirmed, seated, completed, cancelled, no_show]
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateReservationRequest:
+      type: object
+      required:
+        - locationId
+        - customerName
+        - partySize
+        - reservationTime
+      properties:
+        locationId:
+          type: string
+          format: uuid
+        tableId:
+          type: string
+          format: uuid
+        customerName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        customerEmail:
+          type: string
+          format: email
+        customerPhone:
+          type: string
+        partySize:
+          type: integer
+          minimum: 1
+          maximum: 50
+        reservationTime:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          maxLength: 500

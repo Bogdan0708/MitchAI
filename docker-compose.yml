@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hospitality-postgres
+    environment:
+      POSTGRES_DB: hospitality_db
+      POSTGRES_USER: hospitality_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hospitality_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hospitality-redis
+    command: redis-server --appendonly yes --maxmemory 256mb
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6380:6379"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: hospitality-qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "6335:6333"
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: hospitality-n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-n8n_password}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_DATABASE=hospitality_db
+      - DB_POSTGRESDB_USER=hospitality_admin
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "5679:5678"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hospitality-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-mitch2024}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  n8n_data:
+  grafana_data:
