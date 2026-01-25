@@ -1,0 +1,28 @@
+{
+  "name": "@hospitality-saas/deploy-cli",
+  "version": "1.0.0",
+  "description": "CLI tool for deploying Hospitality SaaS to GCP",
+  "type": "module",
+  "bin": {
+    "hsp": "./dist/index.js",
+    "hospitality-deploy": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "enquirer": "^2.4.1",
+    "execa": "^8.0.1",
+    "listr2": "^8.0.2",
+    "ora": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

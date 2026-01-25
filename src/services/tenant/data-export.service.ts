@@ -15,6 +15,7 @@ import { Parser } from '@json2csv/plainjs';
 import path from 'path';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { EmailService } from '../notifications/email.service';
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -48,6 +49,7 @@ export class DataExportService {
   private s3Client: S3Client;
   private s3Bucket: string;
   private exportDir: string;
+  private emailService: EmailService;
 
   constructor(
     pool: Pool,
@@ -58,6 +60,7 @@ export class DataExportService {
     this.s3Client = new S3Client({ region: s3Config.region });
     this.s3Bucket = s3Config.bucket;
     this.exportDir = exportDir;
+    this.emailService = new EmailService(pool);
   }
 
   /**
@@ -590,9 +593,10 @@ export class DataExportService {
     exportId: string,
     _tenantId: string
   ): Promise<void> {
-    // Get tenant and user info
+    // Get tenant and export info
     const result = await client.query(
-      `SELECT t.contact_email, de.file_url, de.expires_at
+      `SELECT t.name as tenant_name, t.email as contact_email,
+              de.file_url, de.expires_at, de.file_size_bytes, de.export_type
       FROM data_exports de
       JOIN tenants t ON de.tenant_id = t.id
       WHERE de.id = $1`,
@@ -601,10 +605,21 @@ export class DataExportService {
 
     if (result.rows.length === 0) return;
 
-    const { contact_email, file_url, expires_at } = result.rows[0];
+    const { tenant_name, contact_email, file_url, expires_at, file_size_bytes, export_type } = result.rows[0];
 
-    // TODO: Send actual email
-    console.log(`Export ready for ${contact_email}: ${file_url} (expires: ${expires_at})`);
+    try {
+      await this.emailService.sendExportReady(contact_email, {
+        businessName: tenant_name,
+        exportType: export_type,
+        downloadUrl: file_url,
+        expiresAt: new Date(expires_at),
+        fileSize: file_size_bytes || 0,
+      });
+      console.log(`Export ready email sent to ${contact_email} for export ${exportId}`);
+    } catch (error) {
+      // Log error but don't fail - export is still complete
+      console.error(`Failed to send export ready email to ${contact_email}:`, error);
+    }
   }
 
   /**

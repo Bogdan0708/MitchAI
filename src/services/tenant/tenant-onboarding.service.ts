@@ -13,6 +13,7 @@ import { Pool, PoolClient } from 'pg';
 import bcrypt from 'bcrypt';
 import Stripe from 'stripe';
 import { v4 as uuidv4 } from 'uuid';
+import { EmailService } from '../notifications/email.service';
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -70,6 +71,7 @@ export class TenantOnboardingService {
   private pool: Pool;
   private stripe: Stripe;
   private jwtSecret: string;
+  private emailService: EmailService;
 
   constructor(pool: Pool, stripeSecretKey: string, jwtSecret: string) {
     this.pool = pool;
@@ -77,6 +79,7 @@ export class TenantOnboardingService {
       apiVersion: '2025-11-17.clover'
     });
     this.jwtSecret = jwtSecret;
+    this.emailService = new EmailService(pool);
   }
 
   /**
@@ -460,16 +463,17 @@ export class TenantOnboardingService {
    * Send welcome email to new tenant
    */
   private async sendWelcomeEmail(request: OnboardingRequest): Promise<void> {
-    // Integrate with your email service (SendGrid, AWS SES, etc.)
-    console.log(`Sending welcome email to ${request.contactEmail}`);
-
-    // Example email content:
-    // - Welcome message
-    // - Getting started guide
-    // - Link to dashboard
-    // - Support contact info
-
-    // TODO: Implement actual email sending
+    try {
+      await this.emailService.sendWelcome(
+        request.contactEmail,
+        request.adminFirstName,
+        request.businessName
+      );
+      console.log(`Welcome email sent to ${request.contactEmail}`);
+    } catch (error) {
+      // Log error but don't fail onboarding - email is non-critical
+      console.error(`Failed to send welcome email to ${request.contactEmail}:`, error);
+    }
   }
 
   /**

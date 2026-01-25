@@ -26,7 +26,9 @@ interface LogEntry {
     message: string;
     stack?: string;
   };
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+  // Allow additional arbitrary properties for flexible logging context
+  [key: string]: unknown;
 }
 
 class Logger {

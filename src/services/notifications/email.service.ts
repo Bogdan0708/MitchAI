@@ -7,10 +7,11 @@
  * - Order notifications
  * - Account notifications
  *
- * Mock implementation for demo - replace with SendGrid/SES in production
+ * Uses SendGrid in production, mock console logging in development
  */
 
 import { Pool } from 'pg';
+import sgMail from '@sendgrid/mail';
 
 // ============================================================================
 // TYPES
@@ -238,6 +239,67 @@ Estimated ready time: ${data.estimatedTime}
     `.trim(),
   }),
 
+  exportReady: (data: {
+    businessName: string;
+    exportType: string;
+    downloadUrl: string;
+    expiresAt: string;
+    fileSize: string;
+  }): EmailTemplate => ({
+    subject: `Your data export is ready - ${data.businessName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { background: #fff; padding: 30px; border: 1px solid #e1e1e1; border-top: none; }
+          .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .info-box { background: #f9fafb; padding: 15px; border-radius: 8px; margin: 20px 0; }
+          .warning { color: #f59e0b; font-size: 14px; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Data Export Ready</h1>
+          </div>
+          <div class="content">
+            <h2>Your export is complete!</h2>
+            <p>Your ${data.exportType} data export for <strong>${data.businessName}</strong> is now ready for download.</p>
+            <div class="info-box">
+              <p><strong>Export Type:</strong> ${data.exportType}</p>
+              <p><strong>File Size:</strong> ${data.fileSize}</p>
+              <p><strong>Expires:</strong> ${data.expiresAt}</p>
+            </div>
+            <a href="${data.downloadUrl}" class="button">Download Export</a>
+            <p class="warning">Note: This download link will expire in 7 days. Please download your data before then.</p>
+          </div>
+          <div class="footer">
+            <p>This export was requested from your Mitch's AI dashboard.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+Your Data Export is Ready
+
+Your ${data.exportType} data export for ${data.businessName} is now ready for download.
+
+Export Type: ${data.exportType}
+File Size: ${data.fileSize}
+Expires: ${data.expiresAt}
+
+Download your export: ${data.downloadUrl}
+
+Note: This download link will expire in 7 days.
+    `.trim(),
+  }),
+
   weeklyDigest: (data: {
     businessName: string;
     weekOf: string;
@@ -328,26 +390,61 @@ export class EmailService {
   private pool: Pool;
   private fromEmail: string;
   private fromName: string;
+  private useSendGrid: boolean;
 
   constructor(pool: Pool) {
     this.pool = pool;
     this.fromEmail = process.env.EMAIL_FROM || 'noreply@mitchs.ai';
     this.fromName = process.env.EMAIL_FROM_NAME || "Mitch's AI";
+
+    // Initialize SendGrid if API key is provided
+    const sendGridKey = process.env.SENDGRID_API_KEY;
+    this.useSendGrid = Boolean(sendGridKey) && process.env.NODE_ENV === 'production';
+
+    if (sendGridKey) {
+      sgMail.setApiKey(sendGridKey);
+    }
   }
 
   /**
-   * Send an email (mock implementation - logs to console)
-   * In production, integrate with SendGrid, AWS SES, etc.
+   * Send an email
+   * Uses SendGrid in production, logs to console in development
    */
   async send(options: SendEmailOptions): Promise<{ success: boolean; messageId?: string }> {
     const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const fromAddress = options.from || `${this.fromName} <${this.fromEmail}>`;
 
-    // Log email in development
+    // Use SendGrid in production
+    if (this.useSendGrid) {
+      try {
+        const [response] = await sgMail.send({
+          to: options.to,
+          from: fromAddress,
+          subject: options.subject,
+          html: options.html,
+          text: options.text,
+          replyTo: options.replyTo,
+        });
+
+        const sgMessageId = response.headers['x-message-id'] || messageId;
+
+        // Log to database for tracking
+        await this.logEmail(options.to, fromAddress, options.subject, 'sent', sgMessageId);
+
+        return { success: true, messageId: sgMessageId };
+      } catch (error) {
+        console.error('SendGrid error:', error);
+        await this.logEmail(options.to, fromAddress, options.subject, 'failed', messageId);
+        throw error;
+      }
+    }
+
+    // Log email in development (mock mode)
     console.log('='.repeat(60));
-    console.log('EMAIL NOTIFICATION (Mock)');
+    console.log('EMAIL NOTIFICATION (Development Mode)');
     console.log('='.repeat(60));
     console.log('To:', options.to);
-    console.log('From:', options.from || `${this.fromName} <${this.fromEmail}>`);
+    console.log('From:', fromAddress);
     console.log('Subject:', options.subject);
     console.log('Message ID:', messageId);
     console.log('-'.repeat(60));
@@ -355,26 +452,31 @@ export class EmailService {
     console.log('='.repeat(60));
 
     // Log to database for tracking
+    await this.logEmail(options.to, fromAddress, options.subject, 'sent', messageId);
+
+    return { success: true, messageId };
+  }
+
+  /**
+   * Log email to database for tracking
+   */
+  private async logEmail(
+    to: string,
+    from: string,
+    subject: string,
+    status: string,
+    messageId: string
+  ): Promise<void> {
     try {
       await this.pool.query(
         `INSERT INTO email_logs (
           id, to_email, from_email, subject, status, message_id, created_at
         ) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-        [
-          messageId,
-          options.to,
-          options.from || this.fromEmail,
-          options.subject,
-          'sent',
-          messageId,
-        ]
+        [messageId, to, from, subject, status, messageId]
       );
-    } catch (error) {
-      // Table might not exist in demo mode
-      console.log('Email log table not available (demo mode)');
+    } catch {
+      // Table might not exist in demo mode - silently ignore
     }
-
-    return { success: true, messageId };
   }
 
   /**
@@ -472,6 +574,48 @@ export class EmailService {
       weekOf,
       stats,
       dashboardUrl: `${process.env.FRONTEND_URL || 'http://localhost:3001'}/dashboard`,
+    });
+
+    return this.send({
+      to,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    });
+  }
+
+  /**
+   * Send export ready notification
+   */
+  async sendExportReady(
+    to: string,
+    data: {
+      businessName: string;
+      exportType: string;
+      downloadUrl: string;
+      expiresAt: Date;
+      fileSize: number;
+    }
+  ): Promise<{ success: boolean; messageId?: string }> {
+    // Format file size
+    const formatFileSize = (bytes: number): string => {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const template = TEMPLATES.exportReady({
+      businessName: data.businessName,
+      exportType: data.exportType,
+      downloadUrl: data.downloadUrl,
+      expiresAt: data.expiresAt.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }),
+      fileSize: formatFileSize(data.fileSize),
     });
 
     return this.send({

@@ -24,7 +24,7 @@ describe('Auth Validators', () => {
       const validData = {
         body: {
           email: 'test@example.com',
-          password: 'password123',
+          password: 'SecurePass123!',
         },
       };
 
@@ -36,7 +36,7 @@ describe('Auth Validators', () => {
       const invalidData = {
         body: {
           email: 'not-an-email',
-          password: 'password123',
+          password: 'SecurePass123!',
         },
       };
 
@@ -62,7 +62,7 @@ describe('Auth Validators', () => {
       const validData = {
         body: {
           email: 'newuser@example.com',
-          password: 'securepassword123',
+          password: 'SecurePass123!',
           firstName: 'John',
           lastName: 'Doe',
           businessName: 'Test Restaurant',
@@ -78,7 +78,7 @@ describe('Auth Validators', () => {
       const invalidData = {
         body: {
           email: 'newuser@example.com',
-          password: 'securepassword123',
+          password: 'SecurePass123!',
         },
       };
 

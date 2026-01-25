@@ -14,6 +14,7 @@ import { Pool } from 'pg';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import { AIRouter, AIMessage, AIProvider, SYSTEM_PROMPTS } from './ai';
+import { runInTenantContext } from '../../lib/db-context';
 
 export interface ChatMessage {
   id: string;
@@ -84,7 +85,7 @@ export class ChatbotService {
     const context = await this.buildContext(request.tenantId);
 
     // Get conversation history
-    const history = await this.getConversationHistory(conversation.id);
+    const history = await this.getConversationHistory(conversation.id, request.tenantId);
 
     // Build messages for AI
     const messages: AIMessage[] = [
@@ -134,7 +135,7 @@ export class ChatbotService {
     const suggestedActions = this.detectSuggestedActions(aiResponse.content);
 
     // Update conversation sentiment
-    await this.updateConversationSentiment(conversation.id, sentiment);
+    await this.updateConversationSentiment(conversation.id, request.tenantId, sentiment);
 
     return {
       conversationId: conversation.id,
@@ -157,7 +158,7 @@ export class ChatbotService {
 
     const conversation = await this.getOrCreateConversation(request);
     const context = await this.buildContext(request.tenantId);
-    const history = await this.getConversationHistory(conversation.id);
+    const history = await this.getConversationHistory(conversation.id, request.tenantId);
 
     const messages: AIMessage[] = [
       {
@@ -228,12 +229,14 @@ export class ChatbotService {
     }
 
     // Try to get from database
-    const result = await this.pool.query(
-      `SELECT * FROM chat_conversations
-       WHERE tenant_id = $1 AND session_id = $2 AND status = 'active'
-       ORDER BY created_at DESC LIMIT 1`,
-      [request.tenantId, request.sessionId]
-    );
+    const result = await runInTenantContext(this.pool, request.tenantId, async (client) => {
+      return client.query(
+        `SELECT * FROM chat_conversations
+         WHERE tenant_id = $1 AND session_id = $2 AND status = 'active'
+         ORDER BY created_at DESC LIMIT 1`,
+        [request.tenantId, request.sessionId]
+      );
+    });
 
     if (result.rows.length > 0) {
       const row = result.rows[0];
@@ -259,21 +262,23 @@ export class ChatbotService {
 
     // Create new conversation
     const id = uuidv4();
-    await this.pool.query(
-      `INSERT INTO chat_conversations
-       (id, tenant_id, session_id, channel, customer_name, customer_email, customer_phone, language, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')`,
-      [
-        id,
-        request.tenantId,
-        request.sessionId,
-        request.channel || 'web',
-        request.customerName,
-        request.customerEmail,
-        request.customerPhone,
-        request.language || 'en'
-      ]
-    );
+    await runInTenantContext(this.pool, request.tenantId, async (client) => {
+      return client.query(
+        `INSERT INTO chat_conversations
+         (id, tenant_id, session_id, channel, customer_name, customer_email, customer_phone, language, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')`,
+        [
+          id,
+          request.tenantId,
+          request.sessionId,
+          request.channel || 'web',
+          request.customerName,
+          request.customerEmail,
+          request.customerPhone,
+          request.language || 'en'
+        ]
+      );
+    });
 
     const conversation: Conversation = {
       id,
@@ -297,15 +302,17 @@ export class ChatbotService {
   /**
    * Get conversation history
    */
-  private async getConversationHistory(conversationId: string): Promise<ChatMessage[]> {
-    const result = await this.pool.query(
-      `SELECT id, role, content, created_at, metadata
-       FROM chat_messages
-       WHERE conversation_id = $1
-       ORDER BY created_at ASC
-       LIMIT 20`, // Limit to recent messages for context window
-      [conversationId]
-    );
+  private async getConversationHistory(conversationId: string, tenantId: string): Promise<ChatMessage[]> {
+    const result = await runInTenantContext(this.pool, tenantId, async (client) => {
+      return client.query(
+        `SELECT id, role, content, created_at, metadata
+         FROM chat_messages
+         WHERE conversation_id = $1
+         ORDER BY created_at ASC
+         LIMIT 20`, // Limit to recent messages for context window
+        [conversationId]
+      );
+    });
 
     return result.rows.map((row) => ({
       id: row.id,
@@ -329,28 +336,30 @@ export class ChatbotService {
     tokensUsed?: number,
     responseTimeMs?: number
   ): Promise<void> {
-    await this.pool.query(
-      `INSERT INTO chat_messages
-       (id, tenant_id, conversation_id, role, content, ai_provider, ai_model, tokens_used, response_time_ms)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        uuidv4(),
-        tenantId,
-        conversationId,
-        role,
-        content,
-        aiProvider,
-        aiModel,
-        tokensUsed,
-        responseTimeMs
-      ]
-    );
+    await runInTenantContext(this.pool, tenantId, async (client) => {
+      await client.query(
+        `INSERT INTO chat_messages
+         (id, tenant_id, conversation_id, role, content, ai_provider, ai_model, tokens_used, response_time_ms)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          uuidv4(),
+          tenantId,
+          conversationId,
+          role,
+          content,
+          aiProvider,
+          aiModel,
+          tokensUsed,
+          responseTimeMs
+        ]
+      );
 
-    // Update conversation timestamp
-    await this.pool.query(
-      `UPDATE chat_conversations SET updated_at = NOW() WHERE id = $1`,
-      [conversationId]
-    );
+      // Update conversation timestamp
+      await client.query(
+        `UPDATE chat_conversations SET updated_at = NOW() WHERE id = $1`,
+        [conversationId]
+      );
+    });
   }
 
   /**
@@ -362,42 +371,44 @@ export class ChatbotService {
     locations: Array<{ name: string; address: string }>;
     openingHours?: string;
   }> {
-    // Get tenant info
-    const tenantResult = await this.pool.query(
-      `SELECT name, settings FROM tenants WHERE id = $1`,
-      [tenantId]
-    );
+    return runInTenantContext(this.pool, tenantId, async (client) => {
+      // Get tenant info
+      const tenantResult = await client.query(
+        `SELECT name, settings FROM tenants WHERE id = $1`,
+        [tenantId]
+      );
 
-    const tenant = tenantResult.rows[0];
+      const tenant = tenantResult.rows[0];
 
-    // Get menu items
-    const menuResult = await this.pool.query(
-      `SELECT name, description, price FROM menu_items
-       WHERE tenant_id = $1 AND is_available = true
-       LIMIT 50`,
-      [tenantId]
-    );
+      // Get menu items
+      const menuResult = await client.query(
+        `SELECT name, description, price FROM menu_items
+         WHERE tenant_id = $1 AND is_available = true
+         LIMIT 50`,
+        [tenantId]
+      );
 
-    // Get locations
-    const locationResult = await this.pool.query(
-      `SELECT name, address, city FROM locations
-       WHERE tenant_id = $1 AND is_active = true`,
-      [tenantId]
-    );
+      // Get locations
+      const locationResult = await client.query(
+        `SELECT name, address, city FROM locations
+         WHERE tenant_id = $1 AND is_active = true`,
+        [tenantId]
+      );
 
-    return {
-      businessName: tenant?.name || 'Restaurant',
-      menuItems: menuResult.rows.map((r) => ({
-        name: r.name,
-        description: r.description || '',
-        price: parseFloat(r.price)
-      })),
-      locations: locationResult.rows.map((r) => ({
-        name: r.name,
-        address: `${r.address}, ${r.city}`
-      })),
-      openingHours: tenant?.settings?.openingHours
-    };
+      return {
+        businessName: tenant?.name || 'Restaurant',
+        menuItems: menuResult.rows.map((r) => ({
+          name: r.name,
+          description: r.description || '',
+          price: parseFloat(r.price)
+        })),
+        locations: locationResult.rows.map((r) => ({
+          name: r.name,
+          address: `${r.address}, ${r.city}`
+        })),
+        openingHours: tenant?.settings?.openingHours
+      };
+    });
   }
 
   /**
@@ -514,51 +525,58 @@ Please respond in ${this.getLanguageName(language)}. The customer prefers commun
    */
   private async updateConversationSentiment(
     conversationId: string,
+    tenantId: string,
     sentiment: 'positive' | 'neutral' | 'negative'
   ): Promise<void> {
     const sentimentScore = sentiment === 'positive' ? 0.5 : sentiment === 'negative' ? -0.5 : 0;
 
-    await this.pool.query(
-      `UPDATE chat_conversations
-       SET sentiment_score = COALESCE(sentiment_score, 0) * 0.7 + $1 * 0.3
-       WHERE id = $2`,
-      [sentimentScore, conversationId]
-    );
+    await runInTenantContext(this.pool, tenantId, async (client) => {
+      return client.query(
+        `UPDATE chat_conversations
+         SET sentiment_score = COALESCE(sentiment_score, 0) * 0.7 + $1 * 0.3
+         WHERE id = $2`,
+        [sentimentScore, conversationId]
+      );
+    });
   }
 
   /**
    * Close a conversation
    */
-  async closeConversation(conversationId: string, resolvedByAi: boolean = true): Promise<void> {
-    await this.pool.query(
-      `UPDATE chat_conversations
-       SET status = 'closed', resolved_by_ai = $1, updated_at = NOW()
-       WHERE id = $2`,
-      [resolvedByAi, conversationId]
-    );
+  async closeConversation(conversationId: string, tenantId: string, resolvedByAi: boolean = true): Promise<void> {
+    await runInTenantContext(this.pool, tenantId, async (client) => {
+      await client.query(
+        `UPDATE chat_conversations
+         SET status = 'closed', resolved_by_ai = $1, updated_at = NOW()
+         WHERE id = $2`,
+        [resolvedByAi, conversationId]
+      );
 
-    // Remove from Redis cache
-    const result = await this.pool.query(
-      `SELECT tenant_id, session_id FROM chat_conversations WHERE id = $1`,
-      [conversationId]
-    );
+      // Remove from Redis cache
+      const result = await client.query(
+        `SELECT tenant_id, session_id FROM chat_conversations WHERE id = $1`,
+        [conversationId]
+      );
 
-    if (result.rows.length > 0) {
-      const { tenant_id, session_id } = result.rows[0];
-      await this.redis.del(`conversation:${tenant_id}:${session_id}`);
-    }
+      if (result.rows.length > 0) {
+        const { tenant_id, session_id } = result.rows[0];
+        await this.redis.del(`conversation:${tenant_id}:${session_id}`);
+      }
+    });
   }
 
   /**
    * Escalate conversation to human
    */
-  async escalateToHuman(conversationId: string): Promise<void> {
-    await this.pool.query(
-      `UPDATE chat_conversations
-       SET status = 'escalated', escalated_to_human = true, updated_at = NOW()
-       WHERE id = $1`,
-      [conversationId]
-    );
+  async escalateToHuman(conversationId: string, tenantId: string): Promise<void> {
+    await runInTenantContext(this.pool, tenantId, async (client) => {
+      return client.query(
+        `UPDATE chat_conversations
+         SET status = 'escalated', escalated_to_human = true, updated_at = NOW()
+         WHERE id = $1`,
+        [conversationId]
+      );
+    });
   }
 
   /**
@@ -592,36 +610,38 @@ Please respond in ${this.getLanguageName(language)}. The customer prefers commun
   }> {
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-    const result = await this.pool.query(
-      `SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN resolved_by_ai THEN 1 ELSE 0 END) as resolved_ai,
-        SUM(CASE WHEN escalated_to_human THEN 1 ELSE 0 END) as escalated,
-        AVG(CASE WHEN sentiment_score > 0.2 THEN 1 WHEN sentiment_score < -0.2 THEN -1 ELSE 0 END) as avg_sentiment
-       FROM chat_conversations
-       WHERE tenant_id = $1 AND created_at >= $2`,
-      [tenantId, startDate]
-    );
+    return runInTenantContext(this.pool, tenantId, async (client) => {
+      const result = await client.query(
+        `SELECT
+          COUNT(*) as total,
+          SUM(CASE WHEN resolved_by_ai THEN 1 ELSE 0 END) as resolved_ai,
+          SUM(CASE WHEN escalated_to_human THEN 1 ELSE 0 END) as escalated,
+          AVG(CASE WHEN sentiment_score > 0.2 THEN 1 WHEN sentiment_score < -0.2 THEN -1 ELSE 0 END) as avg_sentiment
+         FROM chat_conversations
+         WHERE tenant_id = $1 AND created_at >= $2`,
+        [tenantId, startDate]
+      );
 
-    const messageResult = await this.pool.query(
-      `SELECT AVG(response_time_ms) as avg_response
-       FROM chat_messages
-       WHERE tenant_id = $1 AND role = 'assistant' AND created_at >= $2`,
-      [tenantId, startDate]
-    );
+      const messageResult = await client.query(
+        `SELECT AVG(response_time_ms) as avg_response
+         FROM chat_messages
+         WHERE tenant_id = $1 AND role = 'assistant' AND created_at >= $2`,
+        [tenantId, startDate]
+      );
 
-    const row = result.rows[0];
+      const row = result.rows[0];
 
-    return {
-      totalConversations: parseInt(row.total) || 0,
-      resolvedByAi: parseInt(row.resolved_ai) || 0,
-      escalatedToHuman: parseInt(row.escalated) || 0,
-      averageResponseTime: parseFloat(messageResult.rows[0]?.avg_response) || 0,
-      sentimentBreakdown: {
-        positive: 0, // Would need more detailed query
-        neutral: 0,
-        negative: 0
-      }
-    };
+      return {
+        totalConversations: parseInt(row.total) || 0,
+        resolvedByAi: parseInt(row.resolved_ai) || 0,
+        escalatedToHuman: parseInt(row.escalated) || 0,
+        averageResponseTime: parseFloat(messageResult.rows[0]?.avg_response) || 0,
+        sentimentBreakdown: {
+          positive: 0, // Would need more detailed query
+          neutral: 0,
+          negative: 0
+        }
+      };
+    });
   }
 }

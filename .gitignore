@@ -16,6 +16,7 @@ yarn.lock
 dist/
 build/
 *.tsbuildinfo
+frontend/.next/
 
 # Logs
 logs/
@@ -51,7 +52,7 @@ exports/
 
 # Docker
 *.pid
-.dockerignore
+
 
 # SSL certificates
 *.pem
@@ -66,3 +67,47 @@ config/ssl/
 # Redis
 dump.rdb
 appendonly.aof
+
+# Terraform
+infrastructure/terraform/.terraform/
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.*
+infrastructure/terraform/*.tfplan
+infrastructure/terraform/tfplan
+infrastructure/terraform/.terraform.lock.hcl
+infrastructure/terraform/terraform.tfvars
+
+# GCP Credentials
+*-key.json
+*-credentials.json
+service-account*.json
+.env.gcp
+
+# Cloud SQL Proxy
+cloud-sql-proxy
+
+# Claude Code local configuration (auto-managed by claude-slack)
+.claude/
+
+# Development utility scripts (may contain credentials)
+check-items.js
+create-category.js
+update-password.js
+
+# Chat logs and session transcripts
+*.txt
+chatgpt*.md
+gemini-audit.md
+claude-chat.txt
+emergent.md
+*-audit.md
+
+# Downloaded files with Windows Zone Identifiers
+*:Zone.Identifier
+
+# Build output logs
+build_*.txt
+
+# Backup files
+*.backup
+*.bak

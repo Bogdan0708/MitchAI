@@ -92,6 +92,16 @@ export default function MenuPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [showPriceSuggestion, setShowPriceSuggestion] = useState(false)
   const [isDetectingAllergens, setIsDetectingAllergens] = useState(false)
+  const [isAddingItem, setIsAddingItem] = useState(false)
+  const [newItem, setNewItem] = useState<Partial<MenuItem>>({
+    name: '',
+    description: '',
+    price: 0,
+    categoryId: '',
+    isAvailable: true,
+    allergens: [],
+    imageUrl: null,
+  })
 
   // Filter items
   const filteredItems = menuItems.filter((item) => {
@@ -325,6 +335,65 @@ export default function MenuPage() {
     }
   }
 
+  // Create new menu item via API
+  const createItem = async () => {
+    if (!newItem.name || !newItem.price) {
+      setError('Please fill in the item name and price.')
+      return
+    }
+
+    const categoryToUse = newItem.categoryId || categories[0]?.id
+    if (!categoryToUse) {
+      setError('Please create a category first before adding menu items.')
+      return
+    }
+
+    try {
+      // Backend expects snake_case field names
+      const response = await api.createMenuItem({
+        name: newItem.name,
+        description: newItem.description || '',
+        price: newItem.price,
+        category_id: categoryToUse,
+        is_available: newItem.isAvailable ?? true,
+        allergens: newItem.allergens || [],
+      } as any)
+
+      if (response.data) {
+        // Add to local state
+        const data = response.data
+        const createdItem: MenuItem = {
+          id: data.id,
+          name: data.name,
+          description: data.description || '',
+          price: data.price,
+          categoryId: data.categoryId || '',
+          categoryName: categories.find(c => c.id === data.categoryId)?.name || '',
+          isAvailable: data.isAvailable ?? true,
+          aiEnhanced: false,
+          allergens: data.allergens || [],
+          imageUrl: data.imageUrl || null,
+        }
+        setMenuItems(items => [...items, createdItem])
+
+        // Reset form and close modal
+        setNewItem({
+          name: '',
+          description: '',
+          price: 0,
+          categoryId: '',
+          isAvailable: true,
+          allergens: [],
+          imageUrl: null,
+        })
+        setIsAddingItem(false)
+      }
+    } catch (err) {
+      console.error('Failed to create menu item:', err)
+      setError('Failed to create menu item. Please try again.')
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Error Message */}
@@ -363,7 +432,7 @@ export default function MenuPage() {
               </>
             )}
           </Button>
-          <Button>
+          <Button onClick={() => setIsAddingItem(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Item
           </Button>
@@ -658,7 +727,7 @@ export default function MenuPage() {
                 <CardContent className="py-12 text-center">
                   <Utensils className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                   <p className="text-muted-foreground">No menu items found</p>
-                  <Button variant="outline" className="mt-4">
+                  <Button variant="outline" className="mt-4" onClick={() => setIsAddingItem(true)}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add your first item
                   </Button>
@@ -901,6 +970,120 @@ export default function MenuPage() {
                 <Button onClick={saveItem}>
                   <Save className="h-4 w-4 mr-2" />
                   Save Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Item Modal */}
+      {isAddingItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-lg">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Add Menu Item</CardTitle>
+                <CardDescription>Create a new item for your menu</CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsAddingItem(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Item Name */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Item Name *</label>
+                <Input
+                  placeholder="e.g., Grilled Salmon"
+                  value={newItem.name || ''}
+                  onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                />
+              </div>
+
+              {/* Category */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Category</label>
+                <select
+                  value={newItem.categoryId || ''}
+                  onChange={(e) => setNewItem({ ...newItem, categoryId: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Price */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Price *</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={newItem.price || ''}
+                    onChange={(e) => setNewItem({ ...newItem, price: parseFloat(e.target.value) || 0 })}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <textarea
+                  placeholder="Describe your menu item..."
+                  value={newItem.description || ''}
+                  onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                  className="w-full min-h-[80px] p-3 border rounded-lg text-sm resize-none"
+                />
+              </div>
+
+              {/* Availability */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="available"
+                  checked={newItem.isAvailable ?? true}
+                  onChange={(e) => setNewItem({ ...newItem, isAvailable: e.target.checked })}
+                  className="rounded"
+                />
+                <label htmlFor="available" className="text-sm">Available for ordering</label>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setNewItem({
+                      name: '',
+                      description: '',
+                      price: 0,
+                      categoryId: '',
+                      isAvailable: true,
+                      allergens: [],
+                      imageUrl: null,
+                    })
+                    setIsAddingItem(false)
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={createItem}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
                 </Button>
               </div>
             </CardContent>

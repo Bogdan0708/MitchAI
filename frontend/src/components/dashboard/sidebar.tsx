@@ -16,6 +16,9 @@ import {
   ChevronLeft,
   QrCode,
   Plug,
+  ClipboardCheck,
+  Calendar,
+  Brain,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth-context'
@@ -33,8 +36,11 @@ const navigation = [
   { name: 'Menu', href: '/dashboard/menu', icon: UtensilsCrossed },
   { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
   { name: 'QR Ordering', href: '/dashboard/qr-codes', icon: QrCode },
-  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { name: 'Compliance', href: '/dashboard/compliance', icon: ClipboardCheck },
   { name: 'Reviews', href: '/dashboard/reviews', icon: Star },
+  { name: 'Content', href: '/dashboard/content', icon: Calendar },
+  { name: 'Intelligence', href: '/dashboard/intelligence', icon: Brain },
+  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
   { name: 'Integrations', href: '/dashboard/integrations', icon: Plug },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
