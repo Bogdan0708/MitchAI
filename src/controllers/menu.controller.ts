@@ -13,7 +13,7 @@ export class MenuController {
   public getMenuItems = async (req: Request, res: Response) => {
     try {
       const menuItems = await this.menuService.getMenuItemsByTenantId(req.tenant!.tenantId);
-      res.json(menuItems);
+      res.json({ data: menuItems });
     } catch (error) {
       console.error('List menu error:', error);
       res.status(500).json({ error: 'Failed to fetch menu' });
@@ -23,7 +23,7 @@ export class MenuController {
   public createMenuItem = async (req: Request, res: Response) => {
     try {
       const menuItem = await this.menuService.createMenuItem(req.tenant!.tenantId, req.body);
-      res.status(201).json(menuItem);
+      res.status(201).json({ data: menuItem });
     } catch (error) {
       console.error('Create menu item error:', error);
       res.status(500).json({ error: 'Failed to create menu item' });

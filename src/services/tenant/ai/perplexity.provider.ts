@@ -225,7 +225,7 @@ export class PerplexityProvider extends BaseAIProvider {
             Authorization: `Bearer ${this.apiKey}`
           },
           body: JSON.stringify({
-            model: 'llama-3.1-sonar-small-128k-online',
+            model: 'sonar',
             messages: [{ role: 'user', content: 'test' }],
             max_tokens: 5
           })
@@ -265,7 +265,7 @@ export class PerplexityProvider extends BaseAIProvider {
           content: query
         }
       ],
-      model: 'llama-3.1-sonar-large-128k-online' // Use larger model for research
+      model: 'sonar-pro' // Use larger model for research
     });
 
     return {

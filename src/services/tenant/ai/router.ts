@@ -15,6 +15,7 @@ import { BaseAIProvider } from './base.provider';
 import { OpenAIProvider } from './openai.provider';
 import { ClaudeProvider } from './claude.provider';
 import { PerplexityProvider } from './perplexity.provider';
+import { GeminiProvider } from './gemini.provider';
 import { LMStudioProvider } from './lmstudio.provider';
 import { OllamaProvider } from './ollama.provider';
 import {
@@ -24,7 +25,9 @@ import {
   AIProviderConfig,
   AIProviderStatus,
   AIUsageRecord,
-  PROVIDER_MODELS
+  AITaskType,
+  PROVIDER_MODELS,
+  TASK_PROVIDER_MAP
 } from './types';
 
 export interface AIRouterConfig {
@@ -105,6 +108,22 @@ export class AIRouter {
           temperature: 0.7,
           rateLimit: 60,
           ...providerConfigs.perplexity
+        })
+      );
+    }
+
+    if (providerConfigs.gemini?.enabled !== false) {
+      this.providers.set(
+        'gemini',
+        new GeminiProvider({
+          provider: 'gemini',
+          enabled: true,
+          priority: 2,
+          defaultModel: PROVIDER_MODELS.gemini.default,
+          maxTokens: 4096,
+          temperature: 0.7,
+          rateLimit: 60,
+          ...providerConfigs.gemini
         })
       );
     }
@@ -425,35 +444,51 @@ export class AIRouter {
 
   /**
    * Smart provider selection based on request type
+   *
+   * Uses TASK_PROVIDER_MAP for intelligent routing:
+   * - Compliance tasks prefer Claude for complex reasoning
+   * - Review tasks prefer OpenAI for fast structured output
+   * - Content tasks prefer Claude for creative writing
+   * - Research tasks prefer Perplexity for web search capability
+   * - Cost-sensitive tasks prefer local providers (Ollama, LM Studio)
    */
-  selectProviderForTask(taskType: string): AIProvider {
-    switch (taskType) {
-      case 'research':
-      case 'fact_check':
-        return 'perplexity'; // Best for online search/research
+  selectProviderForTask(taskType: AITaskType | string): AIProvider {
+    // Get preferred providers from the task map, fallback to 'general' for unknown tasks
+    const preferredProviders = TASK_PROVIDER_MAP[taskType as AITaskType] || TASK_PROVIDER_MAP.general;
 
-      case 'creative':
-      case 'menu_ai':
-        return 'claude'; // Best for creative writing
-
-      case 'code':
-      case 'technical':
-        return 'openai'; // GPT-4 is strong at code
-
-      case 'cost_sensitive':
-      case 'high_volume':
-        // Prefer local providers
-        if (this.providers.get('lm_studio')?.getStatus().available) {
-          return 'lm_studio';
-        }
-        if (this.providers.get('ollama')?.getStatus().available) {
-          return 'ollama';
-        }
-        return 'openai'; // Fall back to GPT-4o-mini
-
-      default:
-        return this.config.defaultProvider || 'openai';
+    // Try each preferred provider in order, return first available
+    for (const provider of preferredProviders) {
+      const providerInstance = this.providers.get(provider);
+      if (providerInstance?.isEnabled() && providerInstance.getStatus().available) {
+        return provider;
+      }
     }
+
+    // Ultimate fallback to default provider
+    return this.config.defaultProvider || 'openai';
+  }
+
+  /**
+   * Complete a request with automatic provider selection based on task type
+   */
+  async completeForTask(
+    request: AICompletionRequest,
+    taskType: AITaskType
+  ): Promise<AICompletionResponse> {
+    const provider = this.selectProviderForTask(taskType);
+    return this.complete({ ...request, requestType: taskType }, provider);
+  }
+
+  /**
+   * Stream a request with automatic provider selection based on task type
+   */
+  async streamForTask(
+    request: AICompletionRequest,
+    taskType: AITaskType,
+    onChunk: (chunk: string) => void
+  ): Promise<AICompletionResponse> {
+    const provider = this.selectProviderForTask(taskType);
+    return this.stream({ ...request, requestType: taskType }, onChunk, provider);
   }
 
   /**
@@ -508,11 +543,21 @@ export function createDefaultRouter(pool?: Pool, redis?: Redis): AIRouter {
           provider: 'perplexity',
           enabled: !!process.env.PERPLEXITY_API_KEY,
           apiKey: process.env.PERPLEXITY_API_KEY,
-          defaultModel: 'llama-3.1-sonar-small-128k-online',
+          defaultModel: 'sonar',
           maxTokens: 4096,
           temperature: 0.7,
           rateLimit: 60,
           priority: 3
+        },
+        gemini: {
+          provider: 'gemini',
+          enabled: !!process.env.GOOGLE_AI_KEY,
+          apiKey: process.env.GOOGLE_AI_KEY,
+          defaultModel: 'gemini-1.5-flash',
+          maxTokens: 4096,
+          temperature: 0.7,
+          rateLimit: 60,
+          priority: 2
         },
         lm_studio: {
           provider: 'lm_studio',

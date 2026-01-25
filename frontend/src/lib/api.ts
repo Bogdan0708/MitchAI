@@ -1,4 +1,11 @@
-import type { ApiResponse, PaginatedResponse, DashboardStats, MenuItem, MenuCategory, Order, ChatSession, ChatMessage, Review, Reservation } from '@/types'
+import type {
+  ApiResponse, PaginatedResponse, DashboardStats, MenuItem, MenuCategory, Order, ChatSession, ChatMessage, Review, Reservation,
+  // New module types
+  ComplianceTemplate, ComplianceCheck, Equipment, TemperatureLog, CorrectiveAction, HACCPPlan,
+  AggregatedReview, ReviewResponseTemplate, ReviewInsights, ReviewPlatformConnection,
+  ContentCalendarItem, ContentCampaign, SocialAccount, ContentIdea, TrendingTopic,
+  BusinessAlert, BusinessInsight, AlertRule, AutomationRule
+} from '@/types'
 
 // Analytics types
 export interface AnalyticsData {
@@ -558,6 +565,554 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     })
+  }
+
+  // ============================================================================
+  // COMPLIANCE MODULE (Food Safety)
+  // ============================================================================
+
+  // Templates
+  async getComplianceTemplates(params?: { category?: string; locationId?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<ApiResponse<ComplianceTemplate[]>>(`/compliance/templates?${query}`)
+  }
+
+  async getComplianceTemplate(id: string) {
+    return this.request<ApiResponse<ComplianceTemplate>>(`/compliance/templates/${id}`)
+  }
+
+  async createComplianceTemplate(data: Partial<ComplianceTemplate>) {
+    return this.request<ApiResponse<ComplianceTemplate>>('/compliance/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateComplianceTemplate(id: string, data: Partial<ComplianceTemplate>) {
+    return this.request<ApiResponse<ComplianceTemplate>>(`/compliance/templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteComplianceTemplate(id: string) {
+    return this.request<ApiResponse<void>>(`/compliance/templates/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Compliance Checks
+  async getComplianceChecks(params?: { templateId?: string; locationId?: string; status?: string; startDate?: string; endDate?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<PaginatedResponse<ComplianceCheck>>(`/compliance/checks?${query}`)
+  }
+
+  async submitComplianceCheck(data: { templateId: string; locationId: string; responses: Record<string, any>; notes?: string }) {
+    return this.request<ApiResponse<ComplianceCheck>>('/compliance/checks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async getComplianceCheckDetails(id: string) {
+    return this.request<ApiResponse<ComplianceCheck>>(`/compliance/checks/${id}`)
+  }
+
+  // Equipment
+  async getEquipment(params?: { locationId?: string; type?: string; status?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<ApiResponse<Equipment[]>>(`/compliance/equipment?${query}`)
+  }
+
+  async createEquipment(data: Partial<Equipment>) {
+    return this.request<ApiResponse<Equipment>>('/compliance/equipment', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateEquipment(id: string, data: Partial<Equipment>) {
+    return this.request<ApiResponse<Equipment>>(`/compliance/equipment/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteEquipment(id: string) {
+    return this.request<ApiResponse<void>>(`/compliance/equipment/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Temperature Logs
+  async getTemperatureLogs(params?: { equipmentId?: string; locationId?: string; startDate?: string; endDate?: string; outOfRange?: boolean }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<PaginatedResponse<TemperatureLog>>(`/compliance/temperature-logs?${query}`)
+  }
+
+  async logTemperature(data: { equipmentId: string; temperature: number; unit?: 'celsius' | 'fahrenheit'; notes?: string }) {
+    return this.request<ApiResponse<TemperatureLog>>('/compliance/temperature-logs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Corrective Actions
+  async getCorrectiveActions(params?: { locationId?: string; status?: string; severity?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<PaginatedResponse<CorrectiveAction>>(`/compliance/corrective-actions?${query}`)
+  }
+
+  async createCorrectiveAction(data: Partial<CorrectiveAction>) {
+    return this.request<ApiResponse<CorrectiveAction>>('/compliance/corrective-actions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateCorrectiveAction(id: string, data: Partial<CorrectiveAction>) {
+    return this.request<ApiResponse<CorrectiveAction>>(`/compliance/corrective-actions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async resolveCorrectiveAction(id: string, notes: string) {
+    return this.request<ApiResponse<CorrectiveAction>>(`/compliance/corrective-actions/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    })
+  }
+
+  // HACCP Plans
+  async getHACCPPlans() {
+    return this.request<ApiResponse<HACCPPlan[]>>('/compliance/haccp-plans')
+  }
+
+  async createHACCPPlan(data: Partial<HACCPPlan>) {
+    return this.request<ApiResponse<HACCPPlan>>('/compliance/haccp-plans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Compliance Dashboard
+  async getComplianceDashboard(locationId?: string) {
+    const query = locationId ? `?locationId=${locationId}` : ''
+    return this.request<ApiResponse<{
+      complianceScore: number
+      checksToday: number
+      checksDue: number
+      openActions: number
+      criticalAlerts: number
+      recentChecks: ComplianceCheck[]
+      equipmentAlerts: { equipment: Equipment; issue: string }[]
+    }>>(`/compliance/dashboard${query}`)
+  }
+
+  // ============================================================================
+  // REVIEW MANAGEMENT MODULE (Guest Whisperer)
+  // ============================================================================
+
+  // Aggregated Reviews
+  async getAggregatedReviews(params?: { platform?: string; sentiment?: string; status?: string; startDate?: string; endDate?: string; page?: number }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<PaginatedResponse<AggregatedReview>>(`/review-management/reviews?${query}`)
+  }
+
+  async getAggregatedReview(id: string) {
+    return this.request<ApiResponse<AggregatedReview>>(`/review-management/reviews/${id}`)
+  }
+
+  async updateReviewStatus(id: string, status: AggregatedReview['status']) {
+    return this.request<ApiResponse<AggregatedReview>>(`/review-management/reviews/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    })
+  }
+
+  async generateAIReviewResponse(id: string, options?: { tone?: string; templateId?: string; includeOffer?: boolean }) {
+    return this.request<ApiResponse<{ response: string; confidence: number }>>(`/review-management/reviews/${id}/generate-response`, {
+      method: 'POST',
+      body: JSON.stringify(options || {}),
+    })
+  }
+
+  async submitReviewResponse(id: string, response: string, publishToSource?: boolean) {
+    return this.request<ApiResponse<AggregatedReview>>(`/review-management/reviews/${id}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ response, publishToSource }),
+    })
+  }
+
+  async bulkUpdateReviews(reviewIds: string[], action: 'mark_read' | 'archive' | 'flag') {
+    return this.request<ApiResponse<{ updated: number }>>('/review-management/reviews/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ reviewIds, action }),
+    })
+  }
+
+  // Response Templates
+  async getResponseTemplates(category?: string) {
+    const query = category ? `?category=${category}` : ''
+    return this.request<ApiResponse<ReviewResponseTemplate[]>>(`/review-management/templates${query}`)
+  }
+
+  async createResponseTemplate(data: Partial<ReviewResponseTemplate>) {
+    return this.request<ApiResponse<ReviewResponseTemplate>>('/review-management/templates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateResponseTemplate(id: string, data: Partial<ReviewResponseTemplate>) {
+    return this.request<ApiResponse<ReviewResponseTemplate>>(`/review-management/templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteResponseTemplate(id: string) {
+    return this.request<ApiResponse<void>>(`/review-management/templates/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Review Insights
+  async getReviewInsightsSummary(period?: 'daily' | 'weekly' | 'monthly') {
+    const query = period ? `?period=${period}` : ''
+    return this.request<ApiResponse<ReviewInsights>>(`/review-management/insights${query}`)
+  }
+
+  async getReviewTrends(params?: { startDate?: string; endDate?: string; groupBy?: 'day' | 'week' | 'month' }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<ApiResponse<{ date: string; avgRating: number; reviewCount: number; sentiment: { positive: number; neutral: number; negative: number } }[]>>(`/review-management/trends?${query}`)
+  }
+
+  async getTopicAnalysis(period?: 'week' | 'month' | 'quarter') {
+    const query = period ? `?period=${period}` : ''
+    return this.request<ApiResponse<{ topic: string; mentions: number; avgSentiment: number; trend: 'up' | 'down' | 'stable' }[]>>(`/review-management/topics${query}`)
+  }
+
+  // Platform Connections
+  async getReviewPlatformConnections() {
+    return this.request<ApiResponse<ReviewPlatformConnection[]>>('/review-management/platforms')
+  }
+
+  async connectReviewPlatform(platform: string, credentials: Record<string, any>) {
+    return this.request<ApiResponse<ReviewPlatformConnection>>('/review-management/platforms/connect', {
+      method: 'POST',
+      body: JSON.stringify({ platform, credentials }),
+    })
+  }
+
+  async syncReviewPlatform(platform: string) {
+    return this.request<ApiResponse<{ synced: number; new: number }>>(`/review-management/platforms/${platform}/sync`, {
+      method: 'POST',
+    })
+  }
+
+  async disconnectReviewPlatform(platform: string) {
+    return this.request<ApiResponse<void>>(`/review-management/platforms/${platform}/disconnect`, {
+      method: 'POST',
+    })
+  }
+
+  // ============================================================================
+  // CONTENT PLANNER MODULE (Social Media)
+  // ============================================================================
+
+  // Content Calendar
+  async getContentCalendar(params?: { startDate?: string; endDate?: string; status?: string; platform?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<ApiResponse<ContentCalendarItem[]>>(`/content/calendar?${query}`)
+  }
+
+  async getContentItem(id: string) {
+    return this.request<ApiResponse<ContentCalendarItem>>(`/content/calendar/${id}`)
+  }
+
+  async createContentItem(data: Partial<ContentCalendarItem>) {
+    return this.request<ApiResponse<ContentCalendarItem>>('/content/calendar', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateContentItem(id: string, data: Partial<ContentCalendarItem>) {
+    return this.request<ApiResponse<ContentCalendarItem>>(`/content/calendar/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteContentItem(id: string) {
+    return this.request<ApiResponse<void>>(`/content/calendar/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async scheduleContent(id: string, scheduledAt: string) {
+    return this.request<ApiResponse<ContentCalendarItem>>(`/content/calendar/${id}/schedule`, {
+      method: 'POST',
+      body: JSON.stringify({ scheduledAt }),
+    })
+  }
+
+  async publishContentNow(id: string) {
+    return this.request<ApiResponse<ContentCalendarItem>>(`/content/calendar/${id}/publish`, {
+      method: 'POST',
+    })
+  }
+
+  // AI Content Generation
+  async generateCaption(data: { contentType: string; platform: string; topic?: string; tone?: string; menuItem?: string }) {
+    return this.request<ApiResponse<{ caption: string; hashtags: string[]; suggestions: string[] }>>('/content/generate/caption', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async generateContentIdeas(data: { count?: number; contentTypes?: string[]; themes?: string[] }) {
+    return this.request<ApiResponse<ContentIdea[]>>('/content/generate/ideas', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async generateVideoScript(data: { topic: string; duration: number; style: string; platform: string }) {
+    return this.request<ApiResponse<{ script: string; scenes: { timestamp: string; description: string; voiceover: string }[] }>>('/content/generate/script', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  // Campaigns
+  async getCampaigns(status?: string) {
+    const query = status ? `?status=${status}` : ''
+    return this.request<ApiResponse<ContentCampaign[]>>(`/content/campaigns${query}`)
+  }
+
+  async getCampaign(id: string) {
+    return this.request<ApiResponse<ContentCampaign & { content: ContentCalendarItem[] }>>(`/content/campaigns/${id}`)
+  }
+
+  async createCampaign(data: Partial<ContentCampaign>) {
+    return this.request<ApiResponse<ContentCampaign>>('/content/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateCampaign(id: string, data: Partial<ContentCampaign>) {
+    return this.request<ApiResponse<ContentCampaign>>(`/content/campaigns/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteCampaign(id: string) {
+    return this.request<ApiResponse<void>>(`/content/campaigns/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  // Social Accounts
+  async getSocialAccounts() {
+    return this.request<ApiResponse<SocialAccount[]>>('/content/accounts')
+  }
+
+  async connectSocialAccount(platform: string, authCode: string) {
+    return this.request<ApiResponse<SocialAccount>>('/content/accounts/connect', {
+      method: 'POST',
+      body: JSON.stringify({ platform, authCode }),
+    })
+  }
+
+  async disconnectSocialAccount(id: string) {
+    return this.request<ApiResponse<void>>(`/content/accounts/${id}/disconnect`, {
+      method: 'POST',
+    })
+  }
+
+  async refreshSocialAccount(id: string) {
+    return this.request<ApiResponse<SocialAccount>>(`/content/accounts/${id}/refresh`, {
+      method: 'POST',
+    })
+  }
+
+  // Content Ideas & Trending
+  async getContentIdeas(params?: { status?: string; source?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<ApiResponse<ContentIdea[]>>(`/content/ideas?${query}`)
+  }
+
+  async saveContentIdea(id: string) {
+    return this.request<ApiResponse<ContentIdea>>(`/content/ideas/${id}/save`, {
+      method: 'POST',
+    })
+  }
+
+  async dismissContentIdea(id: string) {
+    return this.request<ApiResponse<void>>(`/content/ideas/${id}/dismiss`, {
+      method: 'POST',
+    })
+  }
+
+  async getTrendingTopics(params?: { platform?: string; category?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<ApiResponse<TrendingTopic[]>>(`/content/trending?${query}`)
+  }
+
+  // Content Analytics
+  async getContentAnalytics(params?: { startDate?: string; endDate?: string; platform?: string }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<ApiResponse<{
+      totalPosts: number
+      totalEngagement: number
+      avgEngagementRate: number
+      topPerformingContent: ContentCalendarItem[]
+      engagementByPlatform: { platform: string; posts: number; engagement: number }[]
+      engagementOverTime: { date: string; engagement: number }[]
+    }>>(`/content/analytics?${query}`)
+  }
+
+  // ============================================================================
+  // BUSINESS INTELLIGENCE MODULE
+  // ============================================================================
+
+  // Alerts
+  async getAlerts(params?: { severity?: string; alertType?: string; isRead?: boolean; isResolved?: boolean }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<PaginatedResponse<BusinessAlert>>(`/intelligence/alerts?${query}`)
+  }
+
+  async markAlertRead(id: string) {
+    return this.request<ApiResponse<BusinessAlert>>(`/intelligence/alerts/${id}/read`, {
+      method: 'POST',
+    })
+  }
+
+  async resolveAlert(id: string, notes?: string) {
+    return this.request<ApiResponse<BusinessAlert>>(`/intelligence/alerts/${id}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    })
+  }
+
+  async markAllAlertsRead() {
+    return this.request<ApiResponse<{ updated: number }>>('/intelligence/alerts/mark-all-read', {
+      method: 'POST',
+    })
+  }
+
+  async getAlertStats() {
+    return this.request<ApiResponse<{
+      unread: number
+      critical: number
+      warning: number
+      byType: { type: string; count: number }[]
+    }>>('/intelligence/alerts/stats')
+  }
+
+  // Insights
+  async getInsights(params?: { category?: string; insightType?: string; isActionable?: boolean }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<ApiResponse<BusinessInsight[]>>(`/intelligence/insights?${query}`)
+  }
+
+  async dismissInsight(id: string) {
+    return this.request<ApiResponse<void>>(`/intelligence/insights/${id}/dismiss`, {
+      method: 'POST',
+    })
+  }
+
+  async generateInsights() {
+    return this.request<ApiResponse<{ generated: number; insights: BusinessInsight[] }>>('/intelligence/insights/generate', {
+      method: 'POST',
+    })
+  }
+
+  // Alert Rules
+  async getAlertRules() {
+    return this.request<ApiResponse<AlertRule[]>>('/intelligence/alert-rules')
+  }
+
+  async createAlertRule(data: Partial<AlertRule>) {
+    return this.request<ApiResponse<AlertRule>>('/intelligence/alert-rules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateAlertRule(id: string, data: Partial<AlertRule>) {
+    return this.request<ApiResponse<AlertRule>>(`/intelligence/alert-rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteAlertRule(id: string) {
+    return this.request<ApiResponse<void>>(`/intelligence/alert-rules/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async toggleAlertRule(id: string, isActive: boolean) {
+    return this.request<ApiResponse<AlertRule>>(`/intelligence/alert-rules/${id}/toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ isActive }),
+    })
+  }
+
+  // Automation Rules
+  async getAutomationRules() {
+    return this.request<ApiResponse<AutomationRule[]>>('/intelligence/automations')
+  }
+
+  async createAutomationRule(data: Partial<AutomationRule>) {
+    return this.request<ApiResponse<AutomationRule>>('/intelligence/automations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateAutomationRule(id: string, data: Partial<AutomationRule>) {
+    return this.request<ApiResponse<AutomationRule>>(`/intelligence/automations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteAutomationRule(id: string) {
+    return this.request<ApiResponse<void>>(`/intelligence/automations/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async toggleAutomationRule(id: string, isActive: boolean) {
+    return this.request<ApiResponse<AutomationRule>>(`/intelligence/automations/${id}/toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ isActive }),
+    })
+  }
+
+  async testAutomationRule(id: string) {
+    return this.request<ApiResponse<{ success: boolean; result: any }>>(`/intelligence/automations/${id}/test`, {
+      method: 'POST',
+    })
+  }
+
+  // Intelligence Dashboard
+  async getIntelligenceDashboard() {
+    return this.request<ApiResponse<{
+      alertsSummary: { unread: number; critical: number; warning: number }
+      topInsights: BusinessInsight[]
+      activeAutomations: number
+      recentActivity: { type: string; description: string; timestamp: string }[]
+      healthScore: number
+      recommendations: string[]
+    }>>('/intelligence/dashboard')
   }
 }
 

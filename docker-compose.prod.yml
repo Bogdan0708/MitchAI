@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # DATA STORES
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: hospitality-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hospitality_db}
+      POSTGRES_USER: ${POSTGRES_USER:-hospitality_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+      # Initial schema loading (only runs on first volume creation)
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hospitality_admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hospitality-redis-prod
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: hospitality-qdrant-prod
+    restart: always
+    volumes:
+      - qdrant_data_prod:/qdrant/storage
+
+  # ============================================================================
+  # APPLICATION SERVICES
+  # ============================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: hospitality-api-prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hospitality_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-hospitality_db}
+      REDIS_URL: redis://redis:6379
+      # Add other necessary env vars here, referencing .env
+      JWT_SECRET: ${JWT_SECRET}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://yourdomain.com}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hospitality-frontend-prod
+    restart: always
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.yourdomain.com/api/v1}
+    ports:
+      - "${FRONTEND_PORT:-3001}:3000"
+
+  # ============================================================================
+  # SUPPORT SERVICES
+  # ============================================================================
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: hospitality-n8n-prod
+    restart: always
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-hospitality_db}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-hospitality_admin}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - n8n_data_prod:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data_prod:
+  redis_data_prod:
+  qdrant_data_prod:
+  n8n_data_prod:

@@ -12,6 +12,7 @@ import { Pool } from 'pg';
 import Redis from 'ioredis';
 import { randomUUID } from 'crypto';
 import QRCode from 'qrcode';
+import { runInTenantContext } from '../../lib/db-context';
 
 export interface QRCodeData {
   id: string;
@@ -112,12 +113,14 @@ export class QRService {
     });
 
     // Store in database
-    const result = await this.pool.query(
-      `INSERT INTO qr_codes (id, tenant_id, location_id, table_number, type, url)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [id, tenantId, locationId, tableNumber, type, url]
-    );
+    const result = await runInTenantContext(this.pool, tenantId, async (client) => {
+      return client.query(
+        `INSERT INTO qr_codes (id, tenant_id, location_id, table_number, type, url)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [id, tenantId, locationId, tableNumber, type, url]
+      );
+    });
 
     return {
       id,
@@ -159,14 +162,28 @@ export class QRService {
    * Record QR code scan and create session
    */
   async handleQRScan(qrCodeId: string): Promise<OrderSession> {
-    // Get QR code details
-    const qrResult = await this.pool.query(
-      `UPDATE qr_codes
-       SET scan_count = scan_count + 1, last_scanned_at = NOW()
-       WHERE id = $1
-       RETURNING *`,
+    // Get QR code details - first fetch to get tenantId
+    const qrLookup = await this.pool.query(
+      `SELECT tenant_id FROM qr_codes WHERE id = $1`,
       [qrCodeId]
     );
+
+    if (qrLookup.rows.length === 0) {
+      throw new Error('Invalid QR code');
+    }
+
+    const tenantId = qrLookup.rows[0].tenant_id;
+
+    // Update scan count with RLS protection
+    const qrResult = await runInTenantContext(this.pool, tenantId, async (client) => {
+      return client.query(
+        `UPDATE qr_codes
+         SET scan_count = scan_count + 1, last_scanned_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [qrCodeId]
+      );
+    });
 
     if (qrResult.rows.length === 0) {
       throw new Error('Invalid QR code');
@@ -227,10 +244,12 @@ export class QRService {
     }
 
     // Get menu item details
-    const menuResult = await this.pool.query(
-      `SELECT id, name, price FROM menu_items WHERE id = $1 AND tenant_id = $2`,
-      [item.menuItemId, session.tenantId]
-    );
+    const menuResult = await runInTenantContext(this.pool, session.tenantId, async (client) => {
+      return client.query(
+        `SELECT id, name, price FROM menu_items WHERE id = $1 AND tenant_id = $2`,
+        [item.menuItemId, session.tenantId]
+      );
+    });
 
     if (menuResult.rows.length === 0) {
       throw new Error('Menu item not found');
@@ -415,11 +434,7 @@ export class QRService {
       throw new Error('Session not found');
     }
 
-    const client = await this.pool.connect();
-
-    try {
-      await client.query('BEGIN');
-
+    const orderId = await runInTenantContext(this.pool, session.tenantId, async (client) => {
       // Create order
       const orderResult = await client.query(
         `INSERT INTO orders (
@@ -451,23 +466,18 @@ export class QRService {
         );
       }
 
-      await client.query('COMMIT');
+      return orderId;
+    });
 
-      // Update session status
-      session.status = 'completed';
-      await this.redis.setex(
-        `qr:session:${sessionId}`,
-        3600,
-        JSON.stringify(session)
-      );
+    // Update session status
+    session.status = 'completed';
+    await this.redis.setex(
+      `qr:session:${sessionId}`,
+      3600,
+      JSON.stringify(session)
+    );
 
-      return { orderId };
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+    return { orderId };
   }
 
   /**
@@ -477,12 +487,14 @@ export class QRService {
     tenantId: string,
     locationId: string
   ): Promise<QRCodeData[]> {
-    const result = await this.pool.query(
-      `SELECT * FROM qr_codes
-       WHERE tenant_id = $1 AND location_id = $2
-       ORDER BY table_number`,
-      [tenantId, locationId]
-    );
+    const result = await runInTenantContext(this.pool, tenantId, async (client) => {
+      return client.query(
+        `SELECT * FROM qr_codes
+         WHERE tenant_id = $1 AND location_id = $2
+         ORDER BY table_number`,
+        [tenantId, locationId]
+      );
+    });
 
     return Promise.all(result.rows.map(async row => {
       const qrDataUrl = await QRCode.toDataURL(row.url, {
@@ -509,10 +521,12 @@ export class QRService {
    * Delete QR code
    */
   async deleteQRCode(tenantId: string, qrCodeId: string): Promise<void> {
-    await this.pool.query(
-      'DELETE FROM qr_codes WHERE id = $1 AND tenant_id = $2',
-      [qrCodeId, tenantId]
-    );
+    await runInTenantContext(this.pool, tenantId, async (client) => {
+      return client.query(
+        'DELETE FROM qr_codes WHERE id = $1 AND tenant_id = $2',
+        [qrCodeId, tenantId]
+      );
+    });
   }
 
   /**
@@ -559,7 +573,9 @@ export class QRService {
 
     query += ` ORDER BY mc.sort_order, mi.name`;
 
-    const result = await this.pool.query(query, params);
+    const result = await runInTenantContext(this.pool, tenantId, async (client) => {
+      return client.query(query, params);
+    });
 
     // Group by category
     const categoriesMap = new Map<string, {

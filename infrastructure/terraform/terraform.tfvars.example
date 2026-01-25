@@ -1,0 +1,84 @@
+# =============================================================================
+# Hospitality SaaS - Terraform Variables
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars to version control!
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Required: GCP Project
+# -----------------------------------------------------------------------------
+
+project_id  = "your-gcp-project-id"     # Your GCP project ID
+region      = "us-central1"              # GCP region (us-central1 is cheapest)
+zone        = "us-central1-a"            # GCP zone for VMs
+environment = "production"               # "staging" or "production"
+
+# -----------------------------------------------------------------------------
+# Cloud SQL (PostgreSQL)
+# -----------------------------------------------------------------------------
+# Tiers: db-f1-micro ($9/mo), db-g1-small ($25/mo), db-custom-1-3840 ($50/mo)
+# Start with micro, upgrade when you have paying customers.
+
+db_tier              = "db-f1-micro"
+db_disk_size         = 10              # GB - start small, auto-grows
+db_name              = "hospitality_db"
+db_user              = "hospitality_admin"
+db_high_availability = false           # Enable for prod when revenue supports it
+db_backup_enabled    = true            # Always enable backups
+
+# -----------------------------------------------------------------------------
+# Cloud Run Scaling
+# -----------------------------------------------------------------------------
+# min_instances = 0 means scale-to-zero (cheapest, but cold starts)
+# min_instances = 1 means always-on (instant response, ~$25/mo per service)
+
+api_min_instances = 0                  # Set to 1 to avoid cold starts
+api_max_instances = 10
+
+frontend_min_instances = 0             # Set to 1 to avoid cold starts
+frontend_max_instances = 5
+
+# Resource allocation
+api_cpu      = "1"                     # 1 CPU is usually enough
+api_memory   = "512Mi"                 # 512Mi is minimum for Node.js
+
+frontend_cpu    = "1"
+frontend_memory = "256Mi"              # Next.js standalone is lightweight
+
+# -----------------------------------------------------------------------------
+# Compute Engine (n8n + Redis VM)
+# -----------------------------------------------------------------------------
+# e2-micro ($5/mo) - 0.25 vCPU, 1GB RAM - might be tight
+# e2-small ($10/mo) - 0.5 vCPU, 2GB RAM - recommended minimum
+# e2-medium ($20/mo) - 1 vCPU, 4GB RAM - comfortable
+
+n8n_vm_machine_type = "e2-small"
+n8n_vm_disk_size    = "20"             # GB
+
+# -----------------------------------------------------------------------------
+# Domain (Optional - configure after initial deployment)
+# -----------------------------------------------------------------------------
+# Leave empty for initial deployment. Cloud Run provides *.run.app URLs.
+# Set these when you're ready to configure custom domains.
+
+# domain        = "yourdomain.com"
+# api_subdomain = "api"                # api.yourdomain.com
+# app_subdomain = "app"                # app.yourdomain.com
+
+# -----------------------------------------------------------------------------
+# External Services
+# -----------------------------------------------------------------------------
+
+enable_qdrant_cloud = true             # Use Qdrant Cloud (recommended)
+# qdrant_cloud_url  = "https://xxx.qdrant.tech"  # Set after creating Qdrant Cloud cluster
+
+# -----------------------------------------------------------------------------
+# Labels
+# -----------------------------------------------------------------------------
+
+labels = {
+  managed-by = "terraform"
+  project    = "hospitality-saas"
+  team       = "platform"
+}

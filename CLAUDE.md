@@ -34,19 +34,34 @@ npm start
 
 # Run database migrations
 npm run db:migrate
+npm run db:migrate:status    # Show migration status
+npm run db:migrate:reset     # Reset all migrations (DANGER)
 
 # Run tests
 npm test
-npm test:watch           # Watch mode for TDD
-npm test:coverage        # With coverage report
+npm test:watch               # Watch mode for TDD
+npm test:coverage            # With coverage report
+
+# Run single test file
+npm test -- src/tests/middleware/tenant.middleware.test.ts
 
 # Lint and type check
 npm run lint
-npm run typecheck        # TypeScript validation without emit
+npm run typecheck            # TypeScript validation without emit
 
 # Seed demo data
 npm run db:seed
-npm run db:seed-reviews  # Seed review data specifically
+npm run db:seed-reviews      # Seed review data specifically
+```
+
+### Frontend Commands (in `frontend/` directory)
+
+```bash
+cd frontend
+npm install
+npm run dev          # Start Next.js dev server
+npm run build        # Production build
+npm run lint         # Lint frontend code
 ```
 
 ## Architecture
@@ -458,3 +473,68 @@ Start monitoring stack: `docker-compose --profile monitoring up -d`
 2. Create controller method or inline handler
 3. Add route in `api.routes.ts` with `validate(schema)`
 4. Ensure RLS-enabled table access
+
+## GCP Deployment
+
+Infrastructure is in `infrastructure/` with Terraform modules for GCP deployment.
+
+### Deployment Commands
+
+```bash
+# Option 1: CLI Tool (one command deployment)
+cd infrastructure/cli
+npm install && npm run build && npm link
+hsp deploy                                    # Interactive mode
+hsp deploy -p PROJECT_ID -e production -y     # Non-interactive
+
+# Option 2: Makefile
+cd infrastructure
+make deploy PROJECT=my-project ENV=production
+
+# Option 3: Manual Terraform
+cd infrastructure/terraform
+terraform init
+terraform apply -var="environment=production"
+```
+
+### Infrastructure Structure
+
+```
+infrastructure/
+├── terraform/
+│   ├── main.tf                    # Orchestrates all modules
+│   ├── variables.tf               # Input variables
+│   ├── outputs.tf                 # Deployment URLs, connection info
+│   └── modules/
+│       ├── vpc/                   # VPC, subnets, firewall
+│       ├── cloud-sql/             # PostgreSQL 16
+│       ├── artifact-registry/     # Docker images
+│       ├── cloud-run/             # API & Frontend services
+│       ├── compute-engine/        # n8n + Redis VM
+│       └── secrets/               # Secret Manager
+├── cli/                           # TypeScript CLI tool
+├── scripts/
+│   ├── setup-gcp.sh              # Initial project setup
+│   ├── update-secrets.sh         # Manage secrets
+│   └── deploy.sh                 # Manual deployment
+└── Makefile                       # Quick commands
+```
+
+### GCP Resources Created
+
+| Resource | Service | Purpose |
+|----------|---------|---------|
+| Cloud Run | API | Express.js backend |
+| Cloud Run | Frontend | Next.js app |
+| Cloud SQL | PostgreSQL 16 | Multi-tenant database with RLS |
+| Compute Engine | VM | n8n automation + Redis cache |
+| Artifact Registry | Docker | Container images |
+| Secret Manager | Secrets | API keys, credentials |
+| VPC | Network | Private connectivity |
+
+### CI/CD
+
+GitHub Actions workflow in `.github/workflows/deploy-gcp.yml`:
+- Push to `main` → Deploy to production
+- Push to `develop` → Deploy to staging
+- Builds images, runs migrations, deploys to Cloud Run

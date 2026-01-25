@@ -1,0 +1,377 @@
+# =============================================================================
+# GCP Deployment Pipeline
+# =============================================================================
+# This workflow deploys the Hospitality SaaS platform to Google Cloud Platform.
+#
+# Triggers:
+# - Push to main: Deploy to production (with approval)
+# - Push to develop: Deploy to staging (automatic)
+# - Manual: workflow_dispatch for ad-hoc deployments
+#
+# Prerequisites:
+# 1. Create a GCP Service Account with required permissions
+# 2. Add GOOGLE_CREDENTIALS secret (JSON key file contents)
+# 3. Configure environment variables in GitHub Environments
+# =============================================================================
+
+name: Deploy to GCP
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+  ARTIFACT_REGISTRY: ${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev
+
+jobs:
+  # ==========================================================================
+  # Determine deployment environment
+  # ==========================================================================
+  setup:
+    name: Setup Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      image_tag: ${{ steps.set-env.outputs.image_tag }}
+    steps:
+      - name: Determine environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+          echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+  # ==========================================================================
+  # Build and Push Docker Images to Artifact Registry
+  # ==========================================================================
+  build-api:
+    name: Build API Image
+    runs-on: ubuntu-latest
+    needs: setup
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }} --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          target: production
+          tags: |
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/hospitality-saas-${{ needs.setup.outputs.environment }}-docker/api:${{ needs.setup.outputs.image_tag }}
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/hospitality-saas-${{ needs.setup.outputs.environment }}-docker/api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-frontend:
+    name: Build Frontend Image
+    runs-on: ubuntu-latest
+    needs: setup
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }} --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/hospitality-saas-${{ needs.setup.outputs.environment }}-docker/frontend:${{ needs.setup.outputs.image_tag }}
+            ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/hospitality-saas-${{ needs.setup.outputs.environment }}-docker/frontend:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.API_URL || 'https://api.example.com/api/v1' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==========================================================================
+  # Run Database Migrations
+  # ==========================================================================
+  migrate:
+    name: Run Migrations
+    runs-on: ubuntu-latest
+    needs: [setup, build-api]
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.setup.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install Cloud SQL Proxy
+        run: |
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.8.1/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get database credentials from Secret Manager
+        id: secrets
+        run: |
+          DB_PASSWORD=$(gcloud secrets versions access latest --secret="hospitality-saas-${{ needs.setup.outputs.environment }}-db-password")
+          echo "::add-mask::$DB_PASSWORD"
+          echo "db_password=$DB_PASSWORD" >> $GITHUB_OUTPUT
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://${{ vars.DB_USER }}:${{ steps.secrets.outputs.db_password }}@localhost:5432/${{ vars.DB_NAME }}
+        run: |
+          # Start Cloud SQL Proxy in background
+          ./cloud-sql-proxy "${{ vars.CLOUD_SQL_CONNECTION_NAME }}" --port=5432 &
+          PROXY_PID=$!
+
+          # Wait for proxy to be ready
+          sleep 5
+
+          # Run migrations
+          npm run db:migrate
+
+          # Cleanup
+          kill $PROXY_PID || true
+
+  # ==========================================================================
+  # Deploy to Cloud Run
+  # ==========================================================================
+  deploy-api:
+    name: Deploy API to Cloud Run
+    runs-on: ubuntu-latest
+    needs: [setup, build-api, migrate]
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.setup.outputs.environment }}
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy API to Cloud Run
+        run: |
+          gcloud run deploy hospitality-saas-${{ needs.setup.outputs.environment }}-api \
+            --image=${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/hospitality-saas-${{ needs.setup.outputs.environment }}-docker/api:${{ needs.setup.outputs.image_tag }} \
+            --region=${{ env.GCP_REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=3000 \
+            --cpu=1 \
+            --memory=512Mi \
+            --min-instances=${{ vars.API_MIN_INSTANCES || '0' }} \
+            --max-instances=${{ vars.API_MAX_INSTANCES || '10' }} \
+            --timeout=300 \
+            --set-env-vars="NODE_ENV=production,LOG_LEVEL=info" \
+            --set-secrets="DATABASE_URL=hospitality-saas-${{ needs.setup.outputs.environment }}-db-connection-string:latest" \
+            --set-secrets="JWT_SECRET=hospitality-saas-${{ needs.setup.outputs.environment }}-jwt-secret:latest" \
+            --set-secrets="STRIPE_SECRET_KEY=hospitality-saas-${{ needs.setup.outputs.environment }}-stripe-secret-key:latest" \
+            --set-secrets="STRIPE_WEBHOOK_SECRET=hospitality-saas-${{ needs.setup.outputs.environment }}-stripe-webhook-secret:latest" \
+            --set-secrets="OPENAI_API_KEY=hospitality-saas-${{ needs.setup.outputs.environment }}-openai-api-key:latest" \
+            --set-secrets="ANTHROPIC_API_KEY=hospitality-saas-${{ needs.setup.outputs.environment }}-anthropic-api-key:latest" \
+            --set-secrets="SENDGRID_API_KEY=hospitality-saas-${{ needs.setup.outputs.environment }}-sendgrid-api-key:latest" \
+            --vpc-connector=projects/${{ env.GCP_PROJECT_ID }}/locations/${{ env.GCP_REGION }}/connectors/hospitality-saas-${{ needs.setup.outputs.environment }}-connector \
+            --vpc-egress=private-ranges-only
+
+      - name: Get API URL
+        id: api-url
+        run: |
+          API_URL=$(gcloud run services describe hospitality-saas-${{ needs.setup.outputs.environment }}-api \
+            --region=${{ env.GCP_REGION }} \
+            --format='value(status.url)')
+          echo "url=$API_URL" >> $GITHUB_OUTPUT
+          echo "API deployed to: $API_URL"
+
+    outputs:
+      api_url: ${{ steps.api-url.outputs.url }}
+
+  deploy-frontend:
+    name: Deploy Frontend to Cloud Run
+    runs-on: ubuntu-latest
+    needs: [setup, build-frontend, deploy-api]
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.setup.outputs.environment }}
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Frontend to Cloud Run
+        run: |
+          gcloud run deploy hospitality-saas-${{ needs.setup.outputs.environment }}-frontend \
+            --image=${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/hospitality-saas-${{ needs.setup.outputs.environment }}-docker/frontend:${{ needs.setup.outputs.image_tag }} \
+            --region=${{ env.GCP_REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=3000 \
+            --cpu=1 \
+            --memory=256Mi \
+            --min-instances=${{ vars.FRONTEND_MIN_INSTANCES || '0' }} \
+            --max-instances=${{ vars.FRONTEND_MAX_INSTANCES || '5' }} \
+            --timeout=60 \
+            --set-env-vars="NODE_ENV=production,NEXT_PUBLIC_API_URL=${{ needs.deploy-api.outputs.api_url }}/api/v1"
+
+      - name: Get Frontend URL
+        id: frontend-url
+        run: |
+          FRONTEND_URL=$(gcloud run services describe hospitality-saas-${{ needs.setup.outputs.environment }}-frontend \
+            --region=${{ env.GCP_REGION }} \
+            --format='value(status.url)')
+          echo "url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+          echo "Frontend deployed to: $FRONTEND_URL"
+
+    outputs:
+      frontend_url: ${{ steps.frontend-url.outputs.url }}
+
+  # ==========================================================================
+  # Post-deployment Health Check
+  # ==========================================================================
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-api, deploy-frontend]
+
+    steps:
+      - name: Check API health
+        run: |
+          echo "Checking API health..."
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ needs.deploy-api.outputs.api_url }}/api/v1/health" || echo "000")
+            if [ "$STATUS" == "200" ]; then
+              echo "API is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i: Status $STATUS, retrying..."
+            sleep 10
+          done
+          echo "API health check failed"
+          exit 1
+
+      - name: Check Frontend health
+        run: |
+          echo "Checking Frontend health..."
+          for i in {1..5}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ needs.deploy-frontend.outputs.frontend_url }}" || echo "000")
+            if [ "$STATUS" == "200" ]; then
+              echo "Frontend is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i: Status $STATUS, retrying..."
+            sleep 10
+          done
+          echo "Frontend health check failed"
+          exit 1
+
+  # ==========================================================================
+  # Deployment Summary
+  # ==========================================================================
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-api, deploy-frontend, health-check]
+    if: always()
+
+    steps:
+      - name: Create summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "| --------- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ needs.setup.outputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| API | ${{ needs.deploy-api.outputs.api_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ needs.deploy-frontend.outputs.frontend_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | ${{ needs.setup.outputs.image_tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Health Check Status" >> $GITHUB_STEP_SUMMARY
+          echo "- API: ${{ needs.health-check.result == 'success' && 'Healthy' || 'Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: ${{ needs.health-check.result == 'success' && 'Healthy' || 'Failed' }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Deployment failed! Check the workflow logs for details."
+          # Add Slack/Discord notification here if needed

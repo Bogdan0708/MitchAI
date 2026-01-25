@@ -29,6 +29,23 @@ import {
   reviewResponseSchema,
   createReviewSchema
 } from '../validators/ai.validator';
+import { TenantOnboardingService } from '../services/tenant/tenant-onboarding.service';
+import { getAIRouter } from '../lib/ai-singleton';
+import { ChatbotService } from '../services/tenant/chatbot.service';
+import { MenuAIService } from '../services/tenant/menu-ai.service';
+import { UpsellService } from '../services/tenant/upsell.service';
+import { ReviewAIService } from '../services/tenant/review-ai.service';
+import { BillingService } from '../services/tenant/billing.service';
+import { EmailService } from '../services/notifications/email.service';
+import { GoogleBusinessService } from '../services/integrations/google-business.service';
+import { apiResponse } from '../lib/api-response';
+import { v4 as uuidv4 } from 'uuid';
+
+// Import modular route factories
+import { createComplianceRouter } from './compliance.routes';
+import { createReviewsRouter } from './reviews.routes';
+import { createContentRouter } from './content.routes';
+import { createIntelligenceRouter } from './intelligence.routes';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -99,7 +116,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Onboarding endpoint (tenant signup)
   router.post('/onboard', validate(registerSchema), async (req, res) => {
     try {
-      const { TenantOnboardingService } = await import('../services/tenant/tenant-onboarding.service');
       const onboardingService = new TenantOnboardingService(
         pool,
         process.env.STRIPE_SECRET_KEY!,
@@ -298,14 +314,13 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       );
 
       if (userResult.rows.length === 0 || tenantResult.rows.length === 0) {
-        res.status(404).json({ error: 'User or tenant not found' });
-        return;
+        return apiResponse.notFound(res, 'User or tenant not found');
       }
 
       const user = userResult.rows[0];
       const tenant = tenantResult.rows[0];
 
-      res.json({
+      return res.json({
         data: {
           user: {
             id: user.id,
@@ -329,7 +344,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       });
     } catch (error) {
       console.error('Get current user error:', error);
-      res.status(500).json({ error: 'Failed to get user info' });
+      return apiResponse.serverError(res, 'Failed to get user info');
     }
   });
 
@@ -396,7 +411,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       const customers = customerResult.rows[0];
       const ai = aiResult.rows[0];
 
-      res.json({
+      return res.json({
         data: {
           revenue: {
             today: parseFloat(revenue.today) || 0,
@@ -430,14 +445,17 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       });
     } catch (error) {
       console.error('Dashboard stats error:', error);
-      res.status(500).json({ error: 'Failed to get dashboard stats' });
+      return apiResponse.serverError(res, 'Failed to get dashboard stats');
     }
   });
 
   // Get revenue chart data
   router.get('/dashboard/revenue', async (req, res) => {
     try {
-      const days = parseInt(req.query.days as string) || 7;
+      // Allowlist validation for days parameter
+      const validDays = [7, 14, 30, 90];
+      const requestedDays = parseInt(req.query.days as string);
+      const days = validDays.includes(requestedDays) ? requestedDays : 7;
       const tenantId = req.tenant!.tenantId;
 
       const result = await pool.query(`
@@ -447,11 +465,11 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
           COUNT(*) as orders
         FROM orders
         WHERE tenant_id = $1
-          AND created_at >= NOW() - INTERVAL '${days} days'
+          AND created_at >= NOW() - INTERVAL '1 day' * $2
           AND payment_status = 'paid'
         GROUP BY DATE(created_at)
         ORDER BY date
-      `, [tenantId]);
+      `, [tenantId, days]);
 
       res.json({
         data: result.rows.map(r => ({
@@ -499,8 +517,40 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // List menu items
   router.get('/menu', menuController.getMenuItems);
 
+  // List menu items (alias for frontend compatibility)
+  router.get('/menu/items', menuController.getMenuItems);
+
   // Create menu item
   router.post('/menu', validate(createMenuItemSchema), menuController.createMenuItem);
+
+  // Create menu item (alias for frontend compatibility)
+  router.post('/menu/items', validate(createMenuItemSchema), menuController.createMenuItem);
+
+  // Get menu categories
+  router.get('/menu/categories', async (req, res) => {
+    try {
+      const { MenuService } = await import('../services/tenant/menu.service');
+      const menuService = new MenuService(pool);
+      const categories = await menuService.getCategories(req.tenant!.tenantId);
+      return res.json({ data: categories });
+    } catch (error) {
+      console.error('Get categories error:', error);
+      return res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+  });
+
+  // Create menu category
+  router.post('/menu/categories', async (req, res) => {
+    try {
+      const { MenuService } = await import('../services/tenant/menu.service');
+      const menuService = new MenuService(pool);
+      const category = await menuService.createCategory(req.tenant!.tenantId, req.body);
+      return res.status(201).json({ data: category });
+    } catch (error) {
+      console.error('Create category error:', error);
+      return res.status(500).json({ error: 'Failed to create category' });
+    }
+  });
 
   // ----------------------------------------------------------------------------
   // ORDERS
@@ -609,8 +659,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       );
 
       if (convResult.rows.length === 0) {
-        res.status(404).json({ error: 'Chat session not found' });
-        return;
+        return apiResponse.notFound(res, 'Chat session not found');
       }
 
       const conversationId = convResult.rows[0].id;
@@ -622,7 +671,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
         ORDER BY created_at ASC
       `, [tenantId, conversationId]);
 
-      res.json({
+      return res.json({
         data: result.rows.map(m => ({
           id: m.id,
           role: m.role,
@@ -636,42 +685,15 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       });
     } catch (error) {
       console.error('Get chat messages error:', error);
-      res.status(500).json({ error: 'Failed to get chat messages' });
+      return res.status(500).json({ error: 'Failed to get chat messages' });
     }
   });
 
   // Chat with AI assistant
   router.post('/chat', validate(chatMessageSchema), async (req, res) => {
     try {
-      const { AIRouter } = await import('../services/tenant/ai');
-      const { ChatbotService } = await import('../services/tenant/chatbot.service');
-
-      // Initialize AI router with available providers
-      const aiRouter = new AIRouter({
-        providers: {
-          openai: {
-            provider: 'openai',
-            apiKey: process.env.OPENAI_API_KEY,
-            defaultModel: 'gpt-4o-mini',
-            maxTokens: 1000,
-            temperature: 0.7,
-            rateLimit: 100,
-            enabled: !!process.env.OPENAI_API_KEY,
-            priority: 1
-          },
-          claude: {
-            provider: 'claude',
-            apiKey: process.env.ANTHROPIC_API_KEY,
-            defaultModel: 'claude-3-5-sonnet-20241022',
-            maxTokens: 1000,
-            temperature: 0.7,
-            rateLimit: 100,
-            enabled: !!process.env.ANTHROPIC_API_KEY,
-            priority: 2
-          }
-        },
-        enableFallback: true
-      }, pool);
+      // Get the singleton AIRouter instance
+      const aiRouter = getAIRouter(pool, redis);
 
       const chatbotService = new ChatbotService(aiRouter, pool, redis);
 
@@ -703,24 +725,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Enhance menu item with AI
   router.post('/menu/:id/ai-enhance', validate(menuEnhanceSchema), async (req, res) => {
     try {
-      const { AIRouter } = await import('../services/tenant/ai');
-      const { MenuAIService } = await import('../services/tenant/menu-ai.service');
-
-      const aiRouter = new AIRouter({
-        providers: {
-          openai: {
-            provider: 'openai',
-            apiKey: process.env.OPENAI_API_KEY,
-            defaultModel: 'gpt-4o-mini',
-            maxTokens: 500,
-            temperature: 0.8,
-            rateLimit: 100,
-            enabled: !!process.env.OPENAI_API_KEY,
-            priority: 1
-          }
-        },
-        enableFallback: true
-      }, pool);
+      const aiRouter = getAIRouter(pool, redis);
 
       const menuAIService = new MenuAIService(aiRouter, pool);
 
@@ -797,24 +802,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Get personalized recommendations
   router.get('/recommendations', validate(recommendationsSchema), async (req, res) => {
     try {
-      const { AIRouter } = await import('../services/tenant/ai');
-      const { UpsellService } = await import('../services/tenant/upsell.service');
-
-      const aiRouter = new AIRouter({
-        providers: {
-          openai: {
-            provider: 'openai',
-            apiKey: process.env.OPENAI_API_KEY,
-            defaultModel: 'gpt-4o-mini',
-            maxTokens: 300,
-            temperature: 0.7,
-            rateLimit: 100,
-            enabled: !!process.env.OPENAI_API_KEY,
-            priority: 1
-          }
-        },
-        enableFallback: true
-      }, pool);
+      const aiRouter = getAIRouter(pool, redis);
 
       const upsellService = new UpsellService(pool, redis, aiRouter);
 
@@ -919,23 +907,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Create/import a review
   router.post('/reviews', validate(createReviewSchema), async (req, res) => {
     try {
-      const { AIRouter } = await import('../services/tenant/ai');
-      const { ReviewAIService } = await import('../services/tenant/review-ai.service');
-
-      const aiRouter = new AIRouter({
-        providers: {
-          openai: {
-            provider: 'openai',
-            apiKey: process.env.OPENAI_API_KEY,
-            defaultModel: 'gpt-4o-mini',
-            maxTokens: 200,
-            temperature: 0.3,
-            rateLimit: 100,
-            enabled: !!process.env.OPENAI_API_KEY,
-            priority: 1
-          }
-        }
-      }, pool);
+      const aiRouter = getAIRouter(pool, redis);
 
       const reviewService = new ReviewAIService(pool, aiRouter);
 
@@ -963,23 +935,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Generate AI response for a review
   router.post('/reviews/:id/ai-respond', validate(reviewResponseSchema), async (req, res) => {
     try {
-      const { AIRouter } = await import('../services/tenant/ai');
-      const { ReviewAIService } = await import('../services/tenant/review-ai.service');
-
-      const aiRouter = new AIRouter({
-        providers: {
-          openai: {
-            provider: 'openai',
-            apiKey: process.env.OPENAI_API_KEY,
-            defaultModel: 'gpt-4o-mini',
-            maxTokens: 300,
-            temperature: 0.7,
-            rateLimit: 100,
-            enabled: !!process.env.OPENAI_API_KEY,
-            priority: 1
-          }
-        }
-      }, pool);
+      const aiRouter = getAIRouter(pool, redis);
 
       const reviewService = new ReviewAIService(pool, aiRouter);
 
@@ -1021,10 +977,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Get review insights
   router.get('/reviews/insights', async (req, res) => {
     try {
-      const { AIRouter } = await import('../services/tenant/ai');
-      const { ReviewAIService } = await import('../services/tenant/review-ai.service');
-
-      const aiRouter = new AIRouter({ providers: {} }, pool);
+      const aiRouter = getAIRouter(pool, redis);
       const reviewService = new ReviewAIService(pool, aiRouter);
 
       const insights = await reviewService.getInsights(
@@ -1051,7 +1004,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Get billing info
   router.get('/billing', async (req, res) => {
     try {
-      const { BillingService } = await import('../services/tenant/billing.service');
       const billingService = new BillingService(pool, process.env.STRIPE_SECRET_KEY || '');
 
       const billingInfo = await billingService.getBillingInfo(req.tenant!.tenantId);
@@ -1068,7 +1020,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Get available pricing tiers
   router.get('/billing/tiers', async (_req, res) => {
     try {
-      const { BillingService } = await import('../services/tenant/billing.service');
       const billingService = new BillingService(pool, process.env.STRIPE_SECRET_KEY || '');
 
       const tiers = await billingService.getPricingTiers();
@@ -1085,14 +1036,12 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Create checkout session
   router.post('/billing/checkout', async (req, res) => {
     try {
-      const { BillingService } = await import('../services/tenant/billing.service');
       const billingService = new BillingService(pool, process.env.STRIPE_SECRET_KEY || '');
 
       const { tier, interval, successUrl, cancelUrl } = req.body;
 
       if (!tier || !successUrl || !cancelUrl) {
-        res.status(400).json({ error: 'Missing required fields: tier, successUrl, cancelUrl' });
-        return;
+        return apiResponse.badRequest(res, 'Missing required fields: tier, successUrl, cancelUrl');
       }
 
       const session = await billingService.createCheckoutSession(
@@ -1103,10 +1052,10 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
         cancelUrl
       );
 
-      res.json(session);
+      return res.json(session);
     } catch (error) {
       console.error('Create checkout session error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         error: 'Failed to create checkout session',
         message: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -1116,7 +1065,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Create customer portal session
   router.post('/billing/portal', async (req, res) => {
     try {
-      const { BillingService } = await import('../services/tenant/billing.service');
       const billingService = new BillingService(pool, process.env.STRIPE_SECRET_KEY || '');
 
       const { returnUrl } = req.body;
@@ -1148,7 +1096,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Get notification preferences
   router.get('/notifications/preferences', async (req, res) => {
     try {
-      const { EmailService } = await import('../services/notifications/email.service');
       const emailService = new EmailService(pool);
 
       const preferences = await emailService.getPreferences(req.tenant!.userId);
@@ -1165,7 +1112,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Update notification preferences
   router.patch('/notifications/preferences', async (req, res) => {
     try {
-      const { EmailService } = await import('../services/notifications/email.service');
       const emailService = new EmailService(pool);
 
       await emailService.updatePreferences(req.tenant!.userId, req.body);
@@ -1182,7 +1128,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Send test email (for demo)
   router.post('/notifications/test', async (req, res) => {
     try {
-      const { EmailService } = await import('../services/notifications/email.service');
       const emailService = new EmailService(pool);
 
       const { type } = req.body;
@@ -1244,7 +1189,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Get Google Business connection status
   router.get('/integrations/google-business/status', async (req, res) => {
     try {
-      const { GoogleBusinessService } = await import('../services/integrations/google-business.service');
       const googleService = new GoogleBusinessService(pool);
 
       const status = await googleService.getConnectionStatus(req.tenant!.tenantId);
@@ -1261,7 +1205,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Connect to Google Business Profile
   router.post('/integrations/google-business/connect', async (req, res) => {
     try {
-      const { GoogleBusinessService } = await import('../services/integrations/google-business.service');
       const googleService = new GoogleBusinessService(pool);
 
       const { businessName, address } = req.body;
@@ -1290,7 +1233,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Disconnect from Google Business Profile
   router.post('/integrations/google-business/disconnect', async (req, res) => {
     try {
-      const { GoogleBusinessService } = await import('../services/integrations/google-business.service');
       const googleService = new GoogleBusinessService(pool);
 
       await googleService.disconnect(req.tenant!.tenantId);
@@ -1307,7 +1249,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Sync reviews from Google Business
   router.post('/integrations/google-business/sync', async (req, res) => {
     try {
-      const { GoogleBusinessService } = await import('../services/integrations/google-business.service');
       const googleService = new GoogleBusinessService(pool);
 
       const { locationId } = req.body;
@@ -1326,7 +1267,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Search Google Business profiles (for connecting)
   router.get('/integrations/google-business/search', async (req, res) => {
     try {
-      const { GoogleBusinessService } = await import('../services/integrations/google-business.service');
       const googleService = new GoogleBusinessService(pool);
 
       const query = req.query.q as string;
@@ -1488,7 +1428,6 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
 
       // Create first location if provided
       if (firstLocation) {
-        const { v4: uuidv4 } = await import('uuid');
         const locationId = uuidv4();
         const locationSlug = firstLocation.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -1530,6 +1469,22 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
     }
   });
 
+  // ============================================================================
+  // NEW MODULE ROUTES (Food Safety, Reviews, Content, Intelligence)
+  // ============================================================================
+
+  // Food Safety & Compliance Module
+  router.use('/compliance', createComplianceRouter(pool));
+
+  // Review Management Module (Guest Whisperer)
+  router.use('/review-management', createReviewsRouter(pool));
+
+  // Content Planner Module (TikTok/Social)
+  router.use('/content', createContentRouter(pool));
+
+  // Business Intelligence & Automation Module
+  router.use('/intelligence', createIntelligenceRouter(pool));
+
   return router;
 }
 
@@ -1543,7 +1498,6 @@ export function createWebhookRouter(pool: Pool): Router {
   // Stripe webhook (needs raw body)
   router.post('/stripe', async (req, res) => {
     try {
-      const { BillingService } = await import('../services/tenant/billing.service');
       const billingService = new BillingService(pool, process.env.STRIPE_SECRET_KEY || '');
 
       const signature = req.headers['stripe-signature'] as string;
