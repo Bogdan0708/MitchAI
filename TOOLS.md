@@ -33,4 +33,26 @@ Skills are shared. Your setup is yours. Keeping them apart means you can update 
 
 ---
 
+## AbacusAI Pro
+
+**URL:** https://chatllm.abacus.ai / Desktop App  
+**Plan:** Pro ($20/month)  
+**Credits:** 25,000/month
+
+### Key Features
+- **Deep Agent** - Autonomous tasks, app building, research, browser automation
+- **All LLMs** - GPT-5.2, o3, Claude Opus/Sonnet, Gemini, Grok
+- **Image Gen** - FLUX Pro, DALL-E, GPT Image, Ideogram, Recraft
+- **Video Gen** - Sora-2, Veo-3, Kling, Lumalabs, Runway
+- **Abacus Desktop** - AI code editor
+- **Integrations** - Google Workspace, Jira, Slack, Teams
+
+### Best Uses
+- Marketing content for Mitch (images, videos, Dracula theming)
+- Quick research and competitor analysis
+- Model variety / second opinion on AI tasks
+- Quick prototypes via Deep Agent
+
+---
+
 Add whatever helps you do your job. This is your cheat sheet.
