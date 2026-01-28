@@ -250,11 +250,61 @@ import { errorHandler, AppError } from './middleware/error.middleware';
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
   res.json({
-    name: 'Hospitality SaaS API',
+    name: 'Mitch Hospitality SaaS',
     version: '1.0.0',
     status: 'running',
-    environment: config.nodeEnv
+    environment: config.nodeEnv,
+    docs: '/api-docs',
+    api: '/api/v1'
   });
+});
+
+// Health check endpoint (for load balancers & monitoring)
+app.get('/health', async (_req: Request, res: Response) => {
+  const health: {
+    status: string;
+    timestamp: string;
+    uptime: number;
+    checks: Record<string, { status: string; latency?: number; error?: string }>;
+  } = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    checks: {}
+  };
+
+  // Check database
+  try {
+    const start = Date.now();
+    await pool.query('SELECT 1');
+    health.checks.database = { status: 'healthy', latency: Date.now() - start };
+  } catch (error) {
+    health.checks.database = { status: 'unhealthy', error: (error as Error).message };
+    health.status = 'degraded';
+  }
+
+  // Check Redis
+  try {
+    const start = Date.now();
+    await redis.ping();
+    health.checks.redis = { status: 'healthy', latency: Date.now() - start };
+  } catch (error) {
+    health.checks.redis = { status: 'unhealthy', error: (error as Error).message };
+    health.status = 'degraded';
+  }
+
+  const statusCode = health.status === 'healthy' ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
+// Readiness check (for Kubernetes/ECS)
+app.get('/ready', async (_req: Request, res: Response) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ ready: true });
+  } catch {
+    res.status(503).json({ ready: false });
+  }
 });
 
 // 404 handler
