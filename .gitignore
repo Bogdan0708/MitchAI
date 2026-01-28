@@ -44,8 +44,11 @@ temp/
 
 # Backups
 backups/
-*.sql
 *.sql.gz
+# Note: *.sql was too broad, use specific patterns instead
+backups/*.sql
+dumps/*.sql
+!database/migrations/*.sql
 
 # Exports
 exports/
