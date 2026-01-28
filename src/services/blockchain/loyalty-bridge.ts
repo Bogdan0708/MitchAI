@@ -205,7 +205,7 @@ export class LoyaltyBridge {
       return {
         success: true,
         pointsEarned,
-        newBalance: updatedAccount?.points || 0n,
+        newBalance: updatedAccount?.points || BigInt(0),
         newTier: updatedAccount?.tier || 'bronze',
         txHash,
       };
@@ -214,7 +214,7 @@ export class LoyaltyBridge {
       return {
         success: false,
         pointsEarned: 0,
-        newBalance: 0n,
+        newBalance: BigInt(0),
         newTier: 'bronze',
         error: error instanceof Error ? error.message : 'Unknown error',
       };
@@ -244,8 +244,8 @@ export class LoyaltyBridge {
       if (!account || account.points < points) {
         return {
           success: false,
-          pointsRedeemed: 0n,
-          newBalance: account?.points || 0n,
+          pointsRedeemed: BigInt(0),
+          newBalance: account?.points || BigInt(0),
           error: 'Insufficient points',
         };
       }
@@ -272,7 +272,7 @@ export class LoyaltyBridge {
           if (!result.success) {
             return {
               success: false,
-              pointsRedeemed: 0n,
+              pointsRedeemed: BigInt(0),
               newBalance: account.points,
               error: result.error,
             };
@@ -306,15 +306,15 @@ export class LoyaltyBridge {
       return {
         success: true,
         pointsRedeemed: points,
-        newBalance: updatedAccount?.points || 0n,
+        newBalance: updatedAccount?.points || BigInt(0),
         txHash,
       };
     } catch (error) {
       console.error('Failed to redeem points:', error);
       return {
         success: false,
-        pointsRedeemed: 0n,
-        newBalance: 0n,
+        pointsRedeemed: BigInt(0),
+        newBalance: BigInt(0),
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
