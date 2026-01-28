@@ -169,7 +169,6 @@ const SIMULATED_TRENDS: Record<string, TrendingItem[]> = {
 
 export class TrendingService {
   // Pool stored for future DB queries when platform APIs are integrated
-  // @ts-expect-error Pool will be used when platform APIs are integrated
   constructor(private pool: Pool) {}
 
   /**

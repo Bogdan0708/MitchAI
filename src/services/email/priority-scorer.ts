@@ -344,11 +344,12 @@ Respond with JSON only:
 
       // Parse AI response
       let aiAnalysis: { priority?: number; reason?: string; category?: string };
+      const content = response.content || '';
       try {
-        aiAnalysis = JSON.parse(response.content);
+        aiAnalysis = JSON.parse(content);
       } catch {
         // If JSON parsing fails, extract priority from text
-        const priorityMatch = response.content.match(/priority["\s:]+(\d\.?\d*)/i);
+        const priorityMatch = content.match(/priority["\s:]+(\d\.?\d*)/i);
         aiAnalysis = {
           priority: priorityMatch ? parseFloat(priorityMatch[1]) : 0.5
         };
