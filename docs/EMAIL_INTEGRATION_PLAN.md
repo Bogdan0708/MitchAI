@@ -98,8 +98,8 @@ priority = (
 4. ✅ Database migration (`database/migrations/006_add_tenant_email_integration.sql`)
 5. ✅ Priority scorer (`src/services/email/priority-scorer.ts`)
 6. ✅ Draft generator (`src/services/email/draft-generator.ts`)
-7. [ ] API routes
-8. [ ] Tests
+7. ✅ API routes (`src/routes/email.routes.ts`)
+8. ✅ Tests (`src/tests/services/email-services.test.ts`)
 
 ## Files Created
 
@@ -111,12 +111,23 @@ src/services/email/
 ├── draft-generator.ts # 12.3KB - AI draft generation
 └── index.ts           # 0.7KB - Module exports
 
+src/routes/
+└── email.routes.ts    # 30KB - Full REST API
+
+src/tests/services/
+└── email-services.test.ts  # 20KB - 38 tests
+
 database/migrations/
 └── 006_add_tenant_email_integration.sql  # 14KB - Tables + RLS + helpers
 ```
 
+## Status: COMPLETE ✅
+
+All backend components ported and tested.
+
 ## Next Steps
 
-- [ ] API routes for email endpoints
-- [ ] Tests for email services
+- [ ] Wire routes into main Express app
+- [ ] Add Google OAuth credentials to .env
+- [ ] Run database migration
 - [ ] Frontend components (connect account, inbox view)
