@@ -128,8 +128,8 @@ export class DraftGenerator {
         
         generatedBy: response.model || 'unknown',
         tone,
-        promptTokens: response.promptTokens || 0,
-        completionTokens: response.completionTokens || 0,
+        promptTokens: response.usage?.promptTokens || 0,
+        completionTokens: response.usage?.completionTokens || 0,
         
         status: 'generated',
         createdAt: new Date(),
