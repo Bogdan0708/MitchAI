@@ -42,16 +42,16 @@ export interface LoyaltyAccount {
 
 export interface LoyaltyTierConfig {
   tier: LoyaltyTier;
-  requiredPoints: bigint;
+  requiredPoints: number;
   multiplier: number;
   benefits: string[];
 }
 
 export const LOYALTY_TIERS: LoyaltyTierConfig[] = [
-  { tier: 'bronze', requiredPoints: 0n, multiplier: 1.0, benefits: ['basic_rewards'] },
-  { tier: 'silver', requiredPoints: 1000n, multiplier: 1.25, benefits: ['basic_rewards', 'priority_support'] },
-  { tier: 'gold', requiredPoints: 5000n, multiplier: 1.5, benefits: ['basic_rewards', 'priority_support', 'exclusive_offers'] },
-  { tier: 'platinum', requiredPoints: 20000n, multiplier: 2.0, benefits: ['basic_rewards', 'priority_support', 'exclusive_offers', 'vip_events'] },
+  { tier: 'bronze', requiredPoints: 0, multiplier: 1.0, benefits: ['basic_rewards'] },
+  { tier: 'silver', requiredPoints: 1000, multiplier: 1.25, benefits: ['basic_rewards', 'priority_support'] },
+  { tier: 'gold', requiredPoints: 5000, multiplier: 1.5, benefits: ['basic_rewards', 'priority_support', 'exclusive_offers'] },
+  { tier: 'platinum', requiredPoints: 20000, multiplier: 2.0, benefits: ['basic_rewards', 'priority_support', 'exclusive_offers', 'vip_events'] },
 ];
 
 export interface RewardRule {
@@ -118,9 +118,9 @@ export interface CreditPackageConfig {
 }
 
 export const CREDIT_PACKAGES: CreditPackageConfig[] = [
-  { package: 'starter', credits: 100, priceUMTC: 50000n, bonusCredits: 10, description: '100 credits + 10 bonus' },
-  { package: 'professional', credits: 500, priceUMTC: 200000n, bonusCredits: 75, description: '500 credits + 75 bonus' },
-  { package: 'enterprise', credits: 2000, priceUMTC: 700000n, bonusCredits: 400, description: '2000 credits + 400 bonus' },
+  { package: 'starter', credits: 100, priceUMTC: BigInt(50000), bonusCredits: 10, description: '100 credits + 10 bonus' },
+  { package: 'professional', credits: 500, priceUMTC: BigInt(200000), bonusCredits: 75, description: '500 credits + 75 bonus' },
+  { package: 'enterprise', credits: 2000, priceUMTC: BigInt(700000), bonusCredits: 400, description: '2000 credits + 400 bonus' },
 ];
 
 export type AIService = 
@@ -230,9 +230,10 @@ export function MTCtouMTC(mtc: number): bigint {
 /**
  * Get tier for a given point balance
  */
-export function getTierForPoints(points: bigint): LoyaltyTier {
+export function getTierForPoints(points: number | bigint): LoyaltyTier {
+  const pointsNum = typeof points === 'bigint' ? Number(points) : points;
   for (let i = LOYALTY_TIERS.length - 1; i >= 0; i--) {
-    if (points >= LOYALTY_TIERS[i].requiredPoints) {
+    if (pointsNum >= LOYALTY_TIERS[i].requiredPoints) {
       return LOYALTY_TIERS[i].tier;
     }
   }

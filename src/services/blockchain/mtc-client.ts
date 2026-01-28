@@ -171,9 +171,9 @@ export class MTCClient {
         // Return default account for new users
         return {
           address,
-          points: 0n,
+          points: BigInt(0),
           tier: 'bronze',
-          lifetimePoints: 0n,
+          lifetimePoints: BigInt(0),
           multiplier: 1.0,
           benefits: ['basic_rewards'],
           lastUpdated: new Date(),

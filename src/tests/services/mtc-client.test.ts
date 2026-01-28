@@ -4,6 +4,7 @@
  * Tests for the Mitch Chain blockchain client
  */
 
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MTCClient, getMTCClient, resetMTCClient } from '../../services/blockchain/mtc-client';
 import {
   getTierForPoints,
@@ -19,8 +20,8 @@ import {
 } from '../../services/blockchain/types';
 
 // Mock fetch globally
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
+const mockFetch = vi.fn();
+global.fetch = mockFetch as unknown as typeof fetch;
 
 describe('MTC Client', () => {
   let client: MTCClient;

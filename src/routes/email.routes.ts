@@ -8,7 +8,7 @@
  * - Send replies
  */
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import { Pool } from 'pg';
 import { z } from 'zod';
 import * as crypto from 'crypto';
@@ -23,7 +23,7 @@ import {
   PriorityScorer,
   DraftGenerator
 } from '../services/email';
-import { AIOrchestrator, getAIOrchestrator } from '../services/ai/orchestrator';
+import { getAIOrchestrator } from '../services/ai/orchestrator';
 import { logger } from '../services/logger.service';
 
 // ============================================================================
