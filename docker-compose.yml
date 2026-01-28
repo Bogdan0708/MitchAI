@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: hospitality_db
       POSTGRES_USER: hospitality_admin
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -41,13 +41,13 @@ services:
     container_name: hospitality-n8n
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:-n8n_password}
+      - N8N_BASIC_AUTH_USER=${N8N_USER:?N8N_USER must be set in .env}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:?N8N_PASSWORD must be set in .env}
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_DATABASE=hospitality_db
       - DB_POSTGRESDB_USER=hospitality_admin
-      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
     volumes:
       - n8n_data:/home/node/.n8n
     ports:
@@ -60,7 +60,7 @@ services:
     image: grafana/grafana:latest
     container_name: hospitality-grafana
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-mitch2024}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD must be set in .env}
     volumes:
       - grafana_data:/var/lib/grafana
     ports:

@@ -62,6 +62,61 @@ export interface AIProviderStatus {
   lastChecked: Date;
 }
 
+// ============================================================================
+// PARALLEL EXECUTION TYPES
+// ============================================================================
+
+/**
+ * Result from parallel AI execution
+ */
+export interface AIParallelResult {
+  /** All successful responses */
+  responses: AICompletionResponse[];
+  /** Any provider errors */
+  errors: Array<{ provider: AIProvider; error: string }>;
+  /** Consensus analysis */
+  consensus: AIConsensusResult;
+  /** Execution metadata */
+  metadata: {
+    providersQueried: AIProvider[];
+    successCount: number;
+    failureCount: number;
+    totalTokens: number;
+    totalCostUsd: number;
+    totalTimeMs: number;
+  };
+}
+
+/**
+ * Consensus analysis between multiple AI responses
+ */
+export interface AIConsensusResult {
+  /** Jaccard similarity score (0-1) */
+  score: number;
+  /** Consensus level based on score */
+  level: 'high' | 'moderate' | 'low';
+  /** Common themes/words across responses */
+  themes: string[];
+  /** Most comprehensive response */
+  bestResponse: AICompletionResponse;
+  /** Synthesized recommendation or warning */
+  recommendation: string;
+}
+
+/**
+ * Configuration for parallel execution
+ */
+export interface AIParallelConfig {
+  /** Providers to query (default: top 3 available) */
+  providers?: AIProvider[];
+  /** Minimum consensus score to consider "agreement" (default: 0.7) */
+  consensusThreshold?: number;
+  /** Timeout per provider in ms (default: 30000) */
+  timeoutMs?: number;
+  /** Whether to continue if some providers fail (default: true) */
+  allowPartialResults?: boolean;
+}
+
 export interface AIUsageRecord {
   tenantId: string;
   provider: AIProvider;
@@ -119,14 +174,20 @@ export const PROVIDER_MODELS = {
     }
   },
   ollama: {
-    default: 'llama3.2',
-    models: ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'gemma2'],
+    default: 'llama3.1:8b',
+    models: [
+      'llama3.1:8b',      // General purpose, fast
+      'qwen3:8b',         // Good for multilingual
+      'qwen3-coder:30b',  // Large coding model (18GB)
+      'deepseek-r1:8b',   // Reasoning model
+      'nomic-embed-text'  // Embeddings only
+    ],
     costPer1kTokens: {
-      'llama3.2': { input: 0, output: 0 },
-      'llama3.1': { input: 0, output: 0 },
-      'mistral': { input: 0, output: 0 },
-      'codellama': { input: 0, output: 0 },
-      'gemma2': { input: 0, output: 0 }
+      'llama3.1:8b': { input: 0, output: 0 },
+      'qwen3:8b': { input: 0, output: 0 },
+      'qwen3-coder:30b': { input: 0, output: 0 },
+      'deepseek-r1:8b': { input: 0, output: 0 },
+      'nomic-embed-text': { input: 0, output: 0 }
     }
   }
 } as const;
