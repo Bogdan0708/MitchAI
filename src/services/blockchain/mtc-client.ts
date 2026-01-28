@@ -12,7 +12,6 @@ import {
   MTCConfig,
   TxResult,
   LoyaltyAccount,
-  LoyaltyTier,
   EarnPointsRequest,
   RedeemPointsRequest,
   LeaderboardEntry,
@@ -22,13 +21,59 @@ import {
   UseCreditsRequest,
   WalletInfo,
   AIService,
-  CreditPackage,
   getTierForPoints,
   getTierConfig,
   calculatePurchasePoints,
   getServicePricing,
   uMTCtoMTC,
 } from './types';
+
+// Response types for API calls
+interface NodeInfoResponse {
+  default_node_info: { network: string };
+}
+
+interface BalancesResponse {
+  balances?: Array<{ denom: string; amount: string }>;
+}
+
+interface LoyaltyAccountResponse {
+  loyalty_account: {
+    points?: string;
+    lifetime_points?: string;
+  };
+}
+
+interface LeaderboardResponse {
+  entries?: Array<{
+    address: string;
+    display_name?: string;
+    points?: string;
+    lifetime_points?: string;
+  }>;
+}
+
+interface CreditAccountResponse {
+  credit_account: {
+    total_credits?: string;
+    used_credits?: string;
+    available_credits?: string;
+    last_purchase?: string;
+    last_usage?: string;
+  };
+}
+
+interface CreditHistoryResponse {
+  records?: Array<{
+    id: string;
+    address: string;
+    service: string;
+    credits_used?: string;
+    metadata?: Record<string, unknown>;
+    timestamp: string;
+    tx_hash?: string;
+  }>;
+}
 
 // Environment-based configuration
 const DEFAULT_CONFIG: MTCConfig = {
@@ -58,7 +103,7 @@ export class MTCClient {
     try {
       const response = await fetch(`${this.config.restUrl}/cosmos/base/tendermint/v1beta1/node_info`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as NodeInfoResponse;
         console.log(`Connected to ${data.default_node_info.network}`);
         this.connected = true;
         return true;
@@ -93,8 +138,8 @@ export class MTCClient {
       
       if (!response.ok) return null;
       
-      const data = await response.json();
-      const mtcBalance = data.balances?.find((b: any) => b.denom === this.config.denom);
+      const data = await response.json() as BalancesResponse;
+      const mtcBalance = data.balances?.find(b => b.denom === this.config.denom);
       const balanceUMTC = BigInt(mtcBalance?.amount || '0');
       
       return {
@@ -135,7 +180,7 @@ export class MTCClient {
         };
       }
       
-      const data = await response.json();
+      const data = await response.json() as LoyaltyAccountResponse;
       const account = data.loyalty_account;
       const points = BigInt(account.points || '0');
       const lifetimePoints = BigInt(account.lifetime_points || '0');
@@ -254,8 +299,8 @@ export class MTCClient {
         return [];
       }
       
-      const data = await response.json();
-      return (data.entries || []).map((entry: any, index: number) => ({
+      const data = await response.json() as LeaderboardResponse;
+      return (data.entries || []).map((entry, index) => ({
         rank: index + 1,
         address: entry.address,
         displayName: entry.display_name,
@@ -291,7 +336,7 @@ export class MTCClient {
         };
       }
       
-      const data = await response.json();
+      const data = await response.json() as CreditAccountResponse;
       const credits = data.credit_account;
       
       return {
@@ -401,8 +446,8 @@ export class MTCClient {
         return [];
       }
       
-      const data = await response.json();
-      return (data.records || []).map((record: any) => ({
+      const data = await response.json() as CreditHistoryResponse;
+      return (data.records || []).map(record => ({
         id: record.id,
         address: record.address,
         service: record.service as AIService,
