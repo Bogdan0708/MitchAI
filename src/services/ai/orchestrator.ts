@@ -249,14 +249,52 @@ export class AIOrchestrator {
   // --------------------------------------------------------------------------
 
   /**
+   * Check if an error is retryable (should fallback to another provider)
+   */
+  private isRetryableError(error: string): boolean {
+    const retryablePatterns = [
+      'credit balance',
+      'insufficient credits',
+      'quota exceeded',
+      'rate limit',
+      'capacity',
+      'overloaded',
+      'temporarily unavailable',
+      '429',
+      '503',
+      '529',
+    ];
+    const lowerError = error.toLowerCase();
+    return retryablePatterns.some(pattern => lowerError.includes(pattern));
+  }
+
+  /**
+   * Get fallback models for a task, excluding already tried providers
+   */
+  private getFallbackModels(taskType: AITaskType, excludeProviders: Set<AIProvider>): ModelConfig[] {
+    return Array.from(this.models.values())
+      .filter(m => m.supportedTasks.includes(taskType))
+      .filter(m => this.isProviderAvailable(m.provider))
+      .filter(m => !excludeProviders.has(m.provider))
+      .sort((a, b) => {
+        // Prefer OpenAI > Local > others for fallback
+        const priority: Record<AIProvider, number> = { openai: 1, local: 2, anthropic: 3, google: 4, abacus: 5 };
+        return (priority[a.provider] || 99) - (priority[b.provider] || 99);
+      });
+  }
+
+  /**
    * Process an AI request through the orchestration layer
+   * Automatically falls back to other providers on retryable errors
    */
   async process(request: AIRequest): Promise<AIResponse> {
     const startTime = Date.now();
+    const triedProviders = new Set<AIProvider>();
+    let lastError: string | undefined;
 
     try {
       // 1. Select model based on task and preferences
-      const model = this.selectModel(request.taskType, request.options);
+      let model = this.selectModel(request.taskType, request.options);
       
       if (!model) {
         return {
@@ -284,12 +322,49 @@ export class AIOrchestrator {
         creditsUsed = creditResult.creditsUsed;
       }
 
-      // 3. Route to appropriate provider
-      const response = await this.routeToProvider(model, request);
+      // 3. Try primary provider, then fallbacks if needed
+      while (model) {
+        triedProviders.add(model.provider);
+        console.log(`[AI Orchestrator] Trying ${model.provider}/${model.id}...`);
+        
+        const response = await this.routeToProvider(model, request);
 
+        if (response.success) {
+          return {
+            ...response,
+            creditsUsed,
+            latencyMs: Date.now() - startTime,
+          };
+        }
+
+        // Check if we should try a fallback
+        lastError = response.error;
+        if (this.isRetryableError(response.error || '')) {
+          console.log(`[AI Orchestrator] ${model.provider} failed with retryable error: ${response.error}`);
+          console.log(`[AI Orchestrator] Looking for fallback provider...`);
+          
+          const fallbacks = this.getFallbackModels(request.taskType, triedProviders);
+          if (fallbacks.length > 0) {
+            model = fallbacks[0];
+            console.log(`[AI Orchestrator] Falling back to ${model.provider}/${model.id}`);
+            continue;
+          }
+        }
+
+        // Non-retryable error or no fallbacks available
+        return {
+          ...response,
+          creditsUsed,
+          latencyMs: Date.now() - startTime,
+        };
+      }
+
+      // All providers exhausted
       return {
-        ...response,
-        creditsUsed,
+        success: false,
+        provider: 'local',
+        model: 'none',
+        error: lastError || 'All providers failed',
         latencyMs: Date.now() - startTime,
       };
 
