@@ -15,7 +15,7 @@ import {
   DraftContext,
   DraftTone 
 } from './types';
-import { GmailClient } from './gmail-client';
+// Gmail client imported when needed for sending drafts
 import { AIOrchestrator } from '../ai/orchestrator';
 import { logger } from '../logger.service';
 
@@ -114,7 +114,7 @@ export class DraftGenerator {
         }
       });
 
-      const draftBody = this.cleanDraftBody(response.content);
+      const draftBody = this.cleanDraftBody(response.content || '');
 
       const draft: EmailDraft = {
         id: `draft_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
