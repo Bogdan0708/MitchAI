@@ -719,6 +719,185 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   });
 
   // ----------------------------------------------------------------------------
+  // PARALLEL AI EXECUTION
+  // ----------------------------------------------------------------------------
+
+  /**
+   * Execute AI request on multiple providers in parallel
+   * Returns all responses with consensus analysis
+   * 
+   * POST /api/v1/ai/parallel
+   * Body: {
+   *   prompt: string,
+   *   systemPrompt?: string,
+   *   providers?: ['openai', 'claude', 'gemini'],
+   *   taskType?: string,
+   *   temperature?: number,
+   *   maxTokens?: number
+   * }
+   */
+  router.post('/ai/parallel', async (req, res) => {
+    try {
+      const aiRouter = getAIRouter(pool, redis);
+      const { prompt, systemPrompt, providers, taskType, temperature, maxTokens } = req.body;
+
+      if (!prompt) {
+        res.status(400).json({ error: 'prompt is required' });
+        return;
+      }
+
+      const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
+      if (systemPrompt) {
+        messages.push({ role: 'system', content: systemPrompt });
+      }
+      messages.push({ role: 'user', content: prompt });
+
+      const result = await aiRouter.parallel(
+        {
+          messages,
+          tenantId: req.tenant!.tenantId,
+          requestType: taskType || 'parallel',
+          temperature: temperature ?? 0.7,
+          maxTokens: maxTokens ?? 1000
+        },
+        providers
+      );
+
+      res.json({
+        success: true,
+        consensus: {
+          score: result.consensus.score,
+          level: result.consensus.level,
+          themes: result.consensus.themes,
+          recommendation: result.consensus.recommendation
+        },
+        responses: result.responses.map(r => ({
+          provider: r.provider,
+          model: r.model,
+          content: r.content,
+          tokens: r.usage.totalTokens,
+          timeMs: r.responseTimeMs
+        })),
+        errors: result.errors,
+        metadata: result.metadata
+      });
+    } catch (error) {
+      console.error('Parallel AI error:', error);
+      res.status(500).json({
+        error: 'Parallel AI execution failed',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  /**
+   * Race multiple AI providers - return first successful response
+   * 
+   * POST /api/v1/ai/race
+   */
+  router.post('/ai/race', async (req, res) => {
+    try {
+      const aiRouter = getAIRouter(pool, redis);
+      const { prompt, systemPrompt, providers, temperature, maxTokens } = req.body;
+
+      if (!prompt) {
+        res.status(400).json({ error: 'prompt is required' });
+        return;
+      }
+
+      const messages: Array<{ role: 'system' | 'user'; content: string }> = [];
+      if (systemPrompt) {
+        messages.push({ role: 'system', content: systemPrompt });
+      }
+      messages.push({ role: 'user', content: prompt });
+
+      const response = await aiRouter.race(
+        {
+          messages,
+          tenantId: req.tenant!.tenantId,
+          requestType: 'race',
+          temperature: temperature ?? 0.7,
+          maxTokens: maxTokens ?? 1000
+        },
+        providers
+      );
+
+      res.json({
+        success: true,
+        provider: response.provider,
+        model: response.model,
+        content: response.content,
+        tokens: response.usage.totalTokens,
+        timeMs: response.responseTimeMs
+      });
+    } catch (error) {
+      console.error('AI race error:', error);
+      res.status(500).json({
+        error: 'AI race failed',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  /**
+   * Get AI provider status
+   * 
+   * GET /api/v1/ai/status
+   */
+  router.get('/ai/status', async (_req, res) => {
+    try {
+      const aiRouter = getAIRouter(pool, redis);
+      const status = aiRouter.getAllStatus();
+      const health = await aiRouter.healthCheckAll();
+
+      res.json({
+        providers: status.map(s => ({
+          ...s,
+          healthy: health[s.provider] ?? false
+        })),
+        defaultProvider: process.env.DEFAULT_AI_PROVIDER || 'openai',
+        localFirst: process.env.LOCAL_AI_FIRST === 'true'
+      });
+    } catch (error) {
+      console.error('AI status error:', error);
+      res.status(500).json({
+        error: 'Failed to get AI status',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  /**
+   * Get AI usage statistics for tenant
+   * 
+   * GET /api/v1/ai/usage?days=30
+   */
+  router.get('/ai/usage', async (req, res) => {
+    try {
+      const aiRouter = getAIRouter(pool, redis);
+      const days = parseInt(req.query.days as string) || 30;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const stats = await aiRouter.getTenantUsageStats(
+        req.tenant!.tenantId,
+        startDate,
+        new Date()
+      );
+
+      res.json({
+        period: { days, startDate, endDate: new Date() },
+        ...stats
+      });
+    } catch (error) {
+      console.error('AI usage error:', error);
+      res.status(500).json({
+        error: 'Failed to get AI usage',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ----------------------------------------------------------------------------
   // MENU AI
   // ----------------------------------------------------------------------------
 

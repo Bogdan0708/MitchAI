@@ -26,6 +26,8 @@ import {
   AIProviderStatus,
   AIUsageRecord,
   AITaskType,
+  AIParallelResult,
+  AIConsensusResult,
   PROVIDER_MODELS,
   TASK_PROVIDER_MAP
 } from './types';
@@ -510,6 +512,298 @@ export class AIRouter {
       p.updateConfig(config);
     }
   }
+
+  // ============================================================================
+  // PARALLEL EXECUTION METHODS
+  // ============================================================================
+
+  /**
+   * Execute request on multiple providers in parallel
+   * Returns all responses for consensus/comparison
+   * 
+   * @param request - The completion request
+   * @param providers - Specific providers to use (optional, defaults to top 3 available)
+   * @returns All responses plus consensus analysis
+   * 
+   * @example
+   * const result = await router.parallel(
+   *   { messages: [{ role: 'user', content: 'Should we raise prices?' }] },
+   *   ['openai', 'claude', 'gemini']
+   * );
+   * console.log(result.consensus.score); // 0-1 agreement score
+   */
+  async parallel(
+    request: AICompletionRequest,
+    providers?: AIProvider[]
+  ): Promise<AIParallelResult> {
+    const startTime = Date.now();
+
+    // Get providers to use
+    const targetProviders = providers
+      ? providers
+          .map((p) => this.providers.get(p))
+          .filter((p): p is BaseAIProvider => p !== undefined && p.isEnabled() && p.getStatus().available)
+      : this.getSortedProviders().slice(0, 3); // Default: top 3 available
+
+    if (targetProviders.length === 0) {
+      throw new Error('No providers available for parallel execution');
+    }
+
+    console.log(
+      `Parallel AI: Executing on ${targetProviders.length} providers: ${targetProviders.map((p) => p.name).join(', ')}`
+    );
+
+    // Execute in parallel
+    const results = await Promise.allSettled(
+      targetProviders.map((provider) => provider.complete(request))
+    );
+
+    // Collect successful responses and errors
+    const responses: AICompletionResponse[] = [];
+    const errors: Array<{ provider: AIProvider; error: string }> = [];
+
+    results.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        responses.push(result.value);
+      } else {
+        errors.push({
+          provider: targetProviders[i].name,
+          error: result.reason?.message || 'Unknown error'
+        });
+        console.error(`Parallel AI: ${targetProviders[i].name} failed:`, result.reason);
+      }
+    });
+
+    if (responses.length === 0) {
+      throw new Error(`All providers failed: ${errors.map((e) => `${e.provider}: ${e.error}`).join(', ')}`);
+    }
+
+    // Calculate consensus
+    const consensus = this.calculateConsensus(responses);
+
+    // Track usage for all successful responses
+    if (this.config.trackUsage && request.tenantId) {
+      for (const response of responses) {
+        const provider = this.providers.get(response.provider);
+        if (provider) {
+          await this.trackUsage({
+            tenantId: request.tenantId,
+            provider: response.provider,
+            model: response.model,
+            inputTokens: response.usage.inputTokens,
+            outputTokens: response.usage.outputTokens,
+            costUsd: provider.calculateCost(
+              response.usage.inputTokens,
+              response.usage.outputTokens,
+              response.model
+            ),
+            requestType: request.requestType || 'parallel'
+          });
+        }
+      }
+    }
+
+    const totalTokens = responses.reduce((sum, r) => sum + r.usage.totalTokens, 0);
+    const totalCost = responses.reduce((sum, r) => {
+      const provider = this.providers.get(r.provider);
+      return sum + (provider?.calculateCost(r.usage.inputTokens, r.usage.outputTokens, r.model) || 0);
+    }, 0);
+
+    return {
+      responses,
+      errors,
+      consensus,
+      metadata: {
+        providersQueried: targetProviders.map((p) => p.name),
+        successCount: responses.length,
+        failureCount: errors.length,
+        totalTokens,
+        totalCostUsd: totalCost,
+        totalTimeMs: Date.now() - startTime
+      }
+    };
+  }
+
+  /**
+   * Promise.any polyfill for ES compatibility
+   * Returns the first fulfilled promise, or rejects if all reject
+   */
+  private promiseAny<T>(promises: Promise<T>[]): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const rejections: Error[] = [];
+      let pending = promises.length;
+
+      if (pending === 0) {
+        reject(new Error('All promises were rejected (no promises provided)'));
+        return;
+      }
+
+      promises.forEach((promise, index) => {
+        Promise.resolve(promise)
+          .then(resolve)
+          .catch((error) => {
+            rejections[index] = error;
+            pending--;
+            if (pending === 0) {
+              const messages = rejections.map((e, i) => `[${i}]: ${e?.message || 'Unknown'}`).join('; ');
+              reject(new Error(`All promises were rejected: ${messages}`));
+            }
+          });
+      });
+    });
+  }
+
+  /**
+   * Calculate consensus between multiple AI responses using Jaccard similarity
+   */
+  private calculateConsensus(responses: AICompletionResponse[]): AIConsensusResult {
+    if (responses.length === 1) {
+      return {
+        score: 1,
+        level: 'high',
+        themes: [],
+        bestResponse: responses[0],
+        recommendation: responses[0].content
+      };
+    }
+
+    // Extract significant words from each response (4+ chars, lowercased)
+    const wordSets = responses.map(
+      (r) => new Set((r.content.toLowerCase().match(/\b[a-z]{4,}\b/g) || []))
+    );
+
+    // Calculate Jaccard similarity between all pairs
+    let totalSimilarity = 0;
+    let pairs = 0;
+
+    for (let i = 0; i < wordSets.length; i++) {
+      for (let j = i + 1; j < wordSets.length; j++) {
+        const setA = wordSets[i];
+        const setB = wordSets[j];
+        const intersection = Array.from(setA).filter((w) => setB.has(w));
+        const union = new Set(Array.from(setA).concat(Array.from(setB)));
+        if (union.size > 0) {
+          totalSimilarity += intersection.length / union.size;
+        }
+        pairs++;
+      }
+    }
+
+    const score = pairs > 0 ? totalSimilarity / pairs : 0;
+
+    // Determine consensus level
+    let level: 'high' | 'moderate' | 'low';
+    if (score >= 0.7) {
+      level = 'high';
+    } else if (score >= 0.4) {
+      level = 'moderate';
+    } else {
+      level = 'low';
+    }
+
+    // Find common themes (words appearing in majority of responses)
+    const wordCounts = new Map<string, number>();
+    wordSets.forEach((set) => {
+      set.forEach((word) => {
+        wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+      });
+    });
+
+    const threshold = Math.ceil(responses.length / 2);
+    const themes = Array.from(wordCounts.entries())
+      .filter(([_, count]) => count >= threshold)
+      .sort((a, b) => b[1] - a[1])
+      .map(([word]) => word)
+      .slice(0, 15);
+
+    // Best response = longest detailed response (usually most comprehensive)
+    const bestResponse = responses.reduce((a, b) => (a.content.length > b.content.length ? a : b));
+
+    // Generate synthesized recommendation for high consensus
+    let recommendation = bestResponse.content;
+    if (level === 'low') {
+      recommendation = `⚠️ Low consensus (${Math.round(score * 100)}%). Review all responses:\n\n` +
+        responses.map((r) => `**${r.provider}**: ${r.content.slice(0, 200)}...`).join('\n\n');
+    }
+
+    return {
+      score,
+      level,
+      themes,
+      bestResponse,
+      recommendation
+    };
+  }
+
+  /**
+   * Parallel execution with automatic task-based provider selection
+   * Picks the best providers for the task type
+   */
+  async parallelForTask(
+    request: AICompletionRequest,
+    taskType: AITaskType,
+    count: number = 3
+  ): Promise<AIParallelResult> {
+    // Get preferred providers for this task type
+    const preferredProviders = TASK_PROVIDER_MAP[taskType] || TASK_PROVIDER_MAP.general;
+    
+    // Take top N available providers
+    const availableProviders = preferredProviders
+      .filter((p) => {
+        const provider = this.providers.get(p);
+        return provider?.isEnabled() && provider.getStatus().available;
+      })
+      .slice(0, count);
+
+    return this.parallel({ ...request, requestType: taskType }, availableProviders);
+  }
+
+  /**
+   * Race multiple providers - return first successful response
+   * Useful when you want speed over consensus
+   */
+  async race(
+    request: AICompletionRequest,
+    providers?: AIProvider[]
+  ): Promise<AICompletionResponse> {
+    const targetProviders = providers
+      ? providers
+          .map((p) => this.providers.get(p))
+          .filter((p): p is BaseAIProvider => p !== undefined && p.isEnabled() && p.getStatus().available)
+      : this.getSortedProviders().slice(0, 3);
+
+    if (targetProviders.length === 0) {
+      throw new Error('No providers available for race');
+    }
+
+    // Race all providers - first success wins
+    // Using custom implementation for ES compatibility (Promise.any is ES2021)
+    const response = await this.promiseAny(
+      targetProviders.map((provider) => provider.complete(request))
+    );
+
+    // Track usage
+    if (this.config.trackUsage && request.tenantId) {
+      const provider = this.providers.get(response.provider);
+      if (provider) {
+        await this.trackUsage({
+          tenantId: request.tenantId,
+          provider: response.provider,
+          model: response.model,
+          inputTokens: response.usage.inputTokens,
+          outputTokens: response.usage.outputTokens,
+          costUsd: provider.calculateCost(
+            response.usage.inputTokens,
+            response.usage.outputTokens,
+            response.model
+          ),
+          requestType: request.requestType || 'race'
+        });
+      }
+    }
+
+    return response;
+  }
 }
 
 /**
@@ -573,7 +867,7 @@ export function createDefaultRouter(pool?: Pool, redis?: Redis): AIRouter {
           provider: 'ollama',
           enabled: !!process.env.OLLAMA_URL || process.env.ENABLE_LOCAL_AI === 'true',
           baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-          defaultModel: 'llama3.2',
+          defaultModel: 'llama3.1:8b',
           maxTokens: 4096,
           temperature: 0.7,
           rateLimit: 1000,
