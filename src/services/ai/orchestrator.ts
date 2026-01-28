@@ -518,7 +518,7 @@ export class AIOrchestrator {
   // GOOGLE PROVIDER (PLACEHOLDER)
   // --------------------------------------------------------------------------
 
-  private async callGoogle(model: ModelConfig, request: AIRequest): Promise<AIResponse> {
+  private async callGoogle(_model: ModelConfig, request: AIRequest): Promise<AIResponse> {
     // TODO: Implement Vertex AI / Gemini API
     console.log('[Google] Provider not yet implemented, falling back to local');
     return this.callLocal(
@@ -532,6 +532,11 @@ export class AIOrchestrator {
   // --------------------------------------------------------------------------
 
   private async callLocal(model: ModelConfig, request: AIRequest): Promise<AIResponse> {
+    interface LocalLLMResponse {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+    }
+
     try {
       const response = await fetch(`${this.localBaseUrl}/chat/completions`, {
         method: 'POST',
@@ -548,7 +553,7 @@ export class AIOrchestrator {
         throw new Error(`Local LLM returned ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as LocalLLMResponse;
 
       return {
         success: true,
