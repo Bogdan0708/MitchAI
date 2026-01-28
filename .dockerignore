@@ -1,0 +1,52 @@
+# Dependencies (installed fresh in container)
+node_modules
+**/node_modules
+
+# Git
+.git
+.gitignore
+
+# Build outputs
+dist
+**/dist
+build
+**/build
+
+# Frontend (separate build)
+frontend
+
+# Development files
+*.log
+npm-debug.log*
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Test files
+coverage
+.nyc_output
+**/*.test.ts
+**/*.spec.ts
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Documentation (optional, can include if needed)
+# docs
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temp files
+tmp
+temp
+*.tmp
