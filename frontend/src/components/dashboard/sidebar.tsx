@@ -19,6 +19,7 @@ import {
   ClipboardCheck,
   Calendar,
   Brain,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth-context'
@@ -32,6 +33,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'AI Tools', href: '/dashboard/ai-tools', icon: Sparkles },
   { name: 'Chat', href: '/dashboard/chat', icon: MessageSquare },
   { name: 'Menu', href: '/dashboard/menu', icon: UtensilsCrossed },
   { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },

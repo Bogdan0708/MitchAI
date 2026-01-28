@@ -1114,6 +1114,257 @@ class ApiClient {
       recommendations: string[]
     }>>('/intelligence/dashboard')
   }
+
+  // ============================================================================
+  // AI ORCHESTRATION
+  // ============================================================================
+
+  async getAIHealth() {
+    return this.request<ApiResponse<{
+      healthy: boolean
+      providers: Record<string, boolean>
+    }>>('/ai/health')
+  }
+
+  async getAIModels(taskType?: string) {
+    const query = taskType ? `?task=${taskType}` : ''
+    return this.request<ApiResponse<{
+      count: number
+      models: Array<{
+        id: string
+        name: string
+        provider: string
+        supportedTasks: string[]
+        contextWindow: number
+      }>
+    }>>(`/ai/models${query}`)
+  }
+
+  async generateAIReviewResponseV2(review: {
+    platform: string
+    rating: number
+    text: string
+    customerName?: string
+    date?: string
+  }, options?: {
+    tone?: 'professional' | 'friendly' | 'casual'
+    language?: string
+    preferredProvider?: string
+  }) {
+    return this.request<ApiResponse<{
+      response: string
+      provider: string
+      model: string
+      creditsUsed?: number
+      latencyMs: number
+    }>>('/ai/review-response', {
+      method: 'POST',
+      body: JSON.stringify({
+        review,
+        business_context: options ? {
+          tone: options.tone,
+          language: options.language,
+        } : undefined,
+        preferred_provider: options?.preferredProvider,
+      }),
+    })
+  }
+
+  async generateMenuDescription(item: {
+    name: string
+    category?: string
+    ingredients?: string[]
+    allergens?: string[]
+    price?: number
+    isVegetarian?: boolean
+    isVegan?: boolean
+    isGlutenFree?: boolean
+  }, options?: {
+    style?: 'elegant' | 'casual' | 'fun' | 'descriptive'
+    language?: string
+    maxLength?: number
+  }) {
+    return this.request<ApiResponse<{
+      description: string
+      provider: string
+      model: string
+      creditsUsed?: number
+      latencyMs: number
+    }>>('/ai/menu-description', {
+      method: 'POST',
+      body: JSON.stringify({
+        item: {
+          name: item.name,
+          category: item.category,
+          ingredients: item.ingredients,
+          allergens: item.allergens,
+          price: item.price,
+          is_vegetarian: item.isVegetarian,
+          is_vegan: item.isVegan,
+          is_gluten_free: item.isGlutenFree,
+        },
+        style: options?.style,
+        language: options?.language,
+        max_length: options?.maxLength,
+      }),
+    })
+  }
+
+  async generateMenuDescriptionBatch(items: Array<{
+    name: string
+    category?: string
+    ingredients?: string[]
+    price?: number
+    isVegetarian?: boolean
+    isVegan?: boolean
+    isGlutenFree?: boolean
+  }>, options?: {
+    style?: 'elegant' | 'casual' | 'fun' | 'descriptive'
+    language?: string
+  }) {
+    return this.request<ApiResponse<{
+      total: number
+      successful: number
+      failed: number
+      results: Array<{
+        itemName: string
+        success: boolean
+        description?: string
+        error?: string
+      }>
+    }>>('/ai/menu-description/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: items.map(item => ({
+          name: item.name,
+          category: item.category,
+          ingredients: item.ingredients,
+          price: item.price,
+          is_vegetarian: item.isVegetarian,
+          is_vegan: item.isVegan,
+          is_gluten_free: item.isGlutenFree,
+        })),
+        style: options?.style,
+        language: options?.language,
+      }),
+    })
+  }
+
+  async generateContent(type: 'social_post' | 'email' | 'promo' | 'announcement', topic: string, options?: {
+    context?: string
+    tone?: 'professional' | 'friendly' | 'exciting' | 'informative'
+    platform?: 'instagram' | 'facebook' | 'twitter' | 'email' | 'whatsapp'
+    language?: string
+    maxLength?: number
+  }) {
+    return this.request<ApiResponse<{
+      content: string
+      type: string
+      platform?: string
+      provider: string
+      model: string
+      creditsUsed?: number
+      latencyMs: number
+    }>>('/ai/content', {
+      method: 'POST',
+      body: JSON.stringify({
+        type,
+        topic,
+        context: options?.context,
+        tone: options?.tone,
+        platform: options?.platform,
+        language: options?.language,
+        max_length: options?.maxLength,
+      }),
+    })
+  }
+
+  async analyzeSentimentBatch(texts: string[]) {
+    return this.request<ApiResponse<{
+      results: Array<{
+        text: string
+        sentiment: 'positive' | 'neutral' | 'negative'
+        score: number
+        keywords: string[]
+      }>
+      summary: {
+        positive: number
+        neutral: number
+        negative: number
+        averageScore: number
+      }
+    }>>('/ai/sentiment', {
+      method: 'POST',
+      body: JSON.stringify({ texts }),
+    })
+  }
+
+  async translateContent(text: string, targetLanguage: string, options?: {
+    sourceLanguage?: string
+    context?: 'hospitality' | 'menu' | 'formal' | 'casual'
+  }) {
+    return this.request<ApiResponse<{
+      original: string
+      translated: string
+      targetLanguage: string
+      sourceLanguage: string
+      provider: string
+      model: string
+      creditsUsed?: number
+      latencyMs: number
+    }>>('/ai/translate', {
+      method: 'POST',
+      body: JSON.stringify({
+        text,
+        target_language: targetLanguage,
+        source_language: options?.sourceLanguage,
+        context: options?.context,
+      }),
+    })
+  }
+
+  async aiChat(messages: Array<{ role: 'user' | 'assistant'; content: string }>, options?: {
+    businessContext?: string
+    preferredProvider?: string
+  }) {
+    return this.request<ApiResponse<{
+      response: string
+      provider: string
+      model: string
+      usage?: {
+        promptTokens: number
+        completionTokens: number
+        totalTokens: number
+      }
+      creditsUsed?: number
+      latencyMs: number
+    }>>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages,
+        business_context: options?.businessContext,
+        preferred_provider: options?.preferredProvider,
+      }),
+    })
+  }
+
+  async getAIUsage(period?: '7d' | '30d' | '90d') {
+    const query = period ? `?period=${period}` : ''
+    return this.request<ApiResponse<{
+      period: string
+      totals: { totalRequests: number; totalCredits: number }
+      byTask: Record<string, { requests: number; credits: number }>
+      byProvider: Record<string, { requests: number; credits: number }>
+      daily: Array<{
+        taskType: string
+        provider: string
+        requests: number
+        totalCredits: number
+        avgLatencyMs: number
+        date: string
+      }>
+    }>>(`/ai/usage${query}`)
+  }
 }
 
 export const api = new ApiClient()
