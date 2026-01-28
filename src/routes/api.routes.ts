@@ -46,6 +46,7 @@ import { createComplianceRouter } from './compliance.routes';
 import { createReviewsRouter } from './reviews.routes';
 import { createContentRouter } from './content.routes';
 import { createIntelligenceRouter } from './intelligence.routes';
+import { createAIRouter } from './ai.routes';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -1663,6 +1664,9 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
 
   // Business Intelligence & Automation Module
   router.use('/intelligence', createIntelligenceRouter(pool));
+
+  // AI Orchestration routes
+  router.use('/ai', createAIRouter(pool));
 
   return router;
 }
