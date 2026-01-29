@@ -114,3 +114,4 @@ build_*.txt
 # Backup files
 *.backup
 *.bak
+frontend/out/
