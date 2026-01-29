@@ -35,7 +35,9 @@ interface MenuState {
 export default function QROrderPage() {
   const params = useParams()
   const searchParams = useSearchParams()
-  const slug = params.slug as string
+  // Handle catch-all route - slug is an array
+  const slugArray = params.slug as string[] | undefined
+  const slug = slugArray?.[0] || ''
   const locationId = searchParams.get('location') || undefined
 
   const [menu, setMenu] = useState<MenuState | null>(null)
