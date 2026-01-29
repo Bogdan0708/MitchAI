@@ -112,6 +112,67 @@ const stripe = new Stripe(config.stripe.secretKey);
 const app: Express = express();
 
 // ============================================================================
+// HEALTH CHECK ENDPOINTS (BEFORE ALL MIDDLEWARE)
+// ============================================================================
+// These endpoints MUST be before CORS middleware because:
+// - ALB/ELB health checks are server-to-server requests without Origin header
+// - CORS middleware rejects requests without Origin in production
+// - Health checks would fail with 500 error if they go through CORS
+
+// Simple ping for ALB health checks (fastest response)
+app.get('/ping', (_req: Request, res: Response) => {
+  res.status(200).send('pong');
+});
+
+// Detailed health check for monitoring (checks DB & Redis)
+app.get('/health', async (_req: Request, res: Response) => {
+  const health: {
+    status: string;
+    timestamp: string;
+    uptime: number;
+    checks: Record<string, { status: string; latency?: number; error?: string }>;
+  } = {
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    checks: {}
+  };
+
+  // Check database
+  try {
+    const start = Date.now();
+    await pool.query('SELECT 1');
+    health.checks.database = { status: 'healthy', latency: Date.now() - start };
+  } catch (error) {
+    health.checks.database = { status: 'unhealthy', error: (error as Error).message };
+    health.status = 'degraded';
+  }
+
+  // Check Redis
+  try {
+    const start = Date.now();
+    await redis.ping();
+    health.checks.redis = { status: 'healthy', latency: Date.now() - start };
+  } catch (error) {
+    health.checks.redis = { status: 'unhealthy', error: (error as Error).message };
+    health.status = 'degraded';
+  }
+
+  const statusCode = health.status === 'healthy' ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
+// Readiness check for Kubernetes/ECS (simpler than /health)
+app.get('/ready', async (_req: Request, res: Response) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ ready: true });
+  } catch {
+    res.status(503).json({ ready: false });
+  }
+});
+
+// ============================================================================
 // MIDDLEWARE
 // ============================================================================
 
@@ -259,53 +320,8 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
-// Health check endpoint (for load balancers & monitoring)
-app.get('/health', async (_req: Request, res: Response) => {
-  const health: {
-    status: string;
-    timestamp: string;
-    uptime: number;
-    checks: Record<string, { status: string; latency?: number; error?: string }>;
-  } = {
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    checks: {}
-  };
-
-  // Check database
-  try {
-    const start = Date.now();
-    await pool.query('SELECT 1');
-    health.checks.database = { status: 'healthy', latency: Date.now() - start };
-  } catch (error) {
-    health.checks.database = { status: 'unhealthy', error: (error as Error).message };
-    health.status = 'degraded';
-  }
-
-  // Check Redis
-  try {
-    const start = Date.now();
-    await redis.ping();
-    health.checks.redis = { status: 'healthy', latency: Date.now() - start };
-  } catch (error) {
-    health.checks.redis = { status: 'unhealthy', error: (error as Error).message };
-    health.status = 'degraded';
-  }
-
-  const statusCode = health.status === 'healthy' ? 200 : 503;
-  res.status(statusCode).json(health);
-});
-
-// Readiness check (for Kubernetes/ECS)
-app.get('/ready', async (_req: Request, res: Response) => {
-  try {
-    await pool.query('SELECT 1');
-    res.json({ ready: true });
-  } catch {
-    res.status(503).json({ ready: false });
-  }
-});
+// Note: /health, /ready, /ping are defined BEFORE CORS middleware (top of file)
+// to ensure ALB/ELB health checks work without Origin header
 
 // 404 handler
 app.all('*', (req: Request, _res: Response, next: NextFunction) => {

@@ -1,0 +1,149 @@
+{
+  "description": "CloudWatch Alarms for Mitch Hospitality SaaS",
+  "alarms": [
+    {
+      "alarmName": "mitch-api-high-cpu",
+      "alarmDescription": "ECS API service CPU utilization exceeds 80%",
+      "namespace": "AWS/ECS",
+      "metricName": "CPUUtilization",
+      "dimensions": [
+        { "Name": "ClusterName", "Value": "mitch-cluster" },
+        { "Name": "ServiceName", "Value": "mitch-dev-api" }
+      ],
+      "statistic": "Average",
+      "period": 300,
+      "evaluationPeriods": 2,
+      "threshold": 80,
+      "comparisonOperator": "GreaterThanThreshold",
+      "treatMissingData": "notBreaching"
+    },
+    {
+      "alarmName": "mitch-api-high-memory",
+      "alarmDescription": "ECS API service memory utilization exceeds 80%",
+      "namespace": "AWS/ECS",
+      "metricName": "MemoryUtilization",
+      "dimensions": [
+        { "Name": "ClusterName", "Value": "mitch-cluster" },
+        { "Name": "ServiceName", "Value": "mitch-dev-api" }
+      ],
+      "statistic": "Average",
+      "period": 300,
+      "evaluationPeriods": 2,
+      "threshold": 80,
+      "comparisonOperator": "GreaterThanThreshold",
+      "treatMissingData": "notBreaching"
+    },
+    {
+      "alarmName": "mitch-api-unhealthy-hosts",
+      "alarmDescription": "ALB target group has unhealthy hosts",
+      "namespace": "AWS/ApplicationELB",
+      "metricName": "UnHealthyHostCount",
+      "dimensions": [
+        { "Name": "TargetGroup", "Value": "targetgroup/mitch-dev-api-tg/506ab79f83d2f13d" },
+        { "Name": "LoadBalancer", "Value": "app/mitch-alb/REPLACE_WITH_ALB_ID" }
+      ],
+      "statistic": "Average",
+      "period": 60,
+      "evaluationPeriods": 2,
+      "threshold": 1,
+      "comparisonOperator": "GreaterThanOrEqualToThreshold",
+      "treatMissingData": "notBreaching"
+    },
+    {
+      "alarmName": "mitch-api-5xx-errors",
+      "alarmDescription": "ALB 5XX error rate exceeds threshold",
+      "namespace": "AWS/ApplicationELB",
+      "metricName": "HTTPCode_Target_5XX_Count",
+      "dimensions": [
+        { "Name": "TargetGroup", "Value": "targetgroup/mitch-dev-api-tg/506ab79f83d2f13d" },
+        { "Name": "LoadBalancer", "Value": "app/mitch-alb/REPLACE_WITH_ALB_ID" }
+      ],
+      "statistic": "Sum",
+      "period": 300,
+      "evaluationPeriods": 2,
+      "threshold": 50,
+      "comparisonOperator": "GreaterThanThreshold",
+      "treatMissingData": "notBreaching"
+    },
+    {
+      "alarmName": "mitch-rds-high-cpu",
+      "alarmDescription": "RDS PostgreSQL CPU exceeds 80%",
+      "namespace": "AWS/RDS",
+      "metricName": "CPUUtilization",
+      "dimensions": [
+        { "Name": "DBInstanceIdentifier", "Value": "mitch-postgres" }
+      ],
+      "statistic": "Average",
+      "period": 300,
+      "evaluationPeriods": 2,
+      "threshold": 80,
+      "comparisonOperator": "GreaterThanThreshold",
+      "treatMissingData": "notBreaching"
+    },
+    {
+      "alarmName": "mitch-rds-high-connections",
+      "alarmDescription": "RDS database connections exceed threshold",
+      "namespace": "AWS/RDS",
+      "metricName": "DatabaseConnections",
+      "dimensions": [
+        { "Name": "DBInstanceIdentifier", "Value": "mitch-postgres" }
+      ],
+      "statistic": "Average",
+      "period": 300,
+      "evaluationPeriods": 2,
+      "threshold": 50,
+      "comparisonOperator": "GreaterThanThreshold",
+      "treatMissingData": "notBreaching"
+    },
+    {
+      "alarmName": "mitch-rds-low-storage",
+      "alarmDescription": "RDS free storage below 5GB",
+      "namespace": "AWS/RDS",
+      "metricName": "FreeStorageSpace",
+      "dimensions": [
+        { "Name": "DBInstanceIdentifier", "Value": "mitch-postgres" }
+      ],
+      "statistic": "Average",
+      "period": 300,
+      "evaluationPeriods": 2,
+      "threshold": 5368709120,
+      "comparisonOperator": "LessThanThreshold",
+      "treatMissingData": "notBreaching"
+    },
+    {
+      "alarmName": "mitch-redis-high-cpu",
+      "alarmDescription": "ElastiCache Redis CPU exceeds 80%",
+      "namespace": "AWS/ElastiCache",
+      "metricName": "CPUUtilization",
+      "dimensions": [
+        { "Name": "CacheClusterId", "Value": "mitch-redis" }
+      ],
+      "statistic": "Average",
+      "period": 300,
+      "evaluationPeriods": 2,
+      "threshold": 80,
+      "comparisonOperator": "GreaterThanThreshold",
+      "treatMissingData": "notBreaching"
+    },
+    {
+      "alarmName": "mitch-redis-high-memory",
+      "alarmDescription": "ElastiCache Redis memory usage exceeds 80%",
+      "namespace": "AWS/ElastiCache",
+      "metricName": "DatabaseMemoryUsagePercentage",
+      "dimensions": [
+        { "Name": "CacheClusterId", "Value": "mitch-redis" }
+      ],
+      "statistic": "Average",
+      "period": 300,
+      "evaluationPeriods": 2,
+      "threshold": 80,
+      "comparisonOperator": "GreaterThanThreshold",
+      "treatMissingData": "notBreaching"
+    }
+  ],
+  "setupCommands": {
+    "createSNSTopic": "aws sns create-topic --name mitch-alerts --region eu-west-2",
+    "subscribeEmail": "aws sns subscribe --topic-arn arn:aws:sns:eu-west-2:337270123670:mitch-alerts --protocol email --notification-endpoint YOUR_EMAIL@example.com --region eu-west-2",
+    "createAlarmExample": "aws cloudwatch put-metric-alarm --alarm-name mitch-api-high-cpu --metric-name CPUUtilization --namespace AWS/ECS --statistic Average --period 300 --threshold 80 --comparison-operator GreaterThanThreshold --evaluation-periods 2 --dimensions Name=ClusterName,Value=mitch-cluster Name=ServiceName,Value=mitch-dev-api --alarm-actions arn:aws:sns:eu-west-2:337270123670:mitch-alerts --region eu-west-2"
+  }
+}

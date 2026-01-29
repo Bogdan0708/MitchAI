@@ -1,0 +1,55 @@
+{
+  "description": "Auto-scaling configuration for Mitch Hospitality SaaS ECS service",
+  "scalableTarget": {
+    "serviceNamespace": "ecs",
+    "resourceId": "service/mitch-cluster/mitch-dev-api",
+    "scalableDimension": "ecs:service:DesiredCount",
+    "minCapacity": 1,
+    "maxCapacity": 3
+  },
+  "scalingPolicies": [
+    {
+      "policyName": "mitch-api-cpu-scaling",
+      "policyType": "TargetTrackingScaling",
+      "targetTrackingScalingPolicyConfiguration": {
+        "targetValue": 70.0,
+        "predefinedMetricSpecification": {
+          "predefinedMetricType": "ECSServiceAverageCPUUtilization"
+        },
+        "scaleOutCooldown": 300,
+        "scaleInCooldown": 300
+      }
+    },
+    {
+      "policyName": "mitch-api-memory-scaling",
+      "policyType": "TargetTrackingScaling",
+      "targetTrackingScalingPolicyConfiguration": {
+        "targetValue": 70.0,
+        "predefinedMetricSpecification": {
+          "predefinedMetricType": "ECSServiceAverageMemoryUtilization"
+        },
+        "scaleOutCooldown": 300,
+        "scaleInCooldown": 300
+      }
+    },
+    {
+      "policyName": "mitch-api-request-scaling",
+      "policyType": "TargetTrackingScaling",
+      "targetTrackingScalingPolicyConfiguration": {
+        "targetValue": 1000,
+        "predefinedMetricSpecification": {
+          "predefinedMetricType": "ALBRequestCountPerTarget",
+          "resourceLabel": "app/mitch-alb/REPLACE_WITH_ALB_ID/targetgroup/mitch-dev-api-tg/506ab79f83d2f13d"
+        },
+        "scaleOutCooldown": 300,
+        "scaleInCooldown": 300
+      }
+    }
+  ],
+  "setupCommands": {
+    "registerScalableTarget": "aws application-autoscaling register-scalable-target --service-namespace ecs --resource-id service/mitch-cluster/mitch-dev-api --scalable-dimension ecs:service:DesiredCount --min-capacity 1 --max-capacity 3 --region eu-west-2",
+    "putCPUScalingPolicy": "aws application-autoscaling put-scaling-policy --service-namespace ecs --resource-id service/mitch-cluster/mitch-dev-api --scalable-dimension ecs:service:DesiredCount --policy-name mitch-api-cpu-scaling --policy-type TargetTrackingScaling --target-tracking-scaling-policy-configuration '{\"TargetValue\":70.0,\"PredefinedMetricSpecification\":{\"PredefinedMetricType\":\"ECSServiceAverageCPUUtilization\"},\"ScaleOutCooldown\":300,\"ScaleInCooldown\":300}' --region eu-west-2",
+    "describeScalableTargets": "aws application-autoscaling describe-scalable-targets --service-namespace ecs --resource-id service/mitch-cluster/mitch-dev-api --region eu-west-2",
+    "describeScalingPolicies": "aws application-autoscaling describe-scaling-policies --service-namespace ecs --resource-id service/mitch-cluster/mitch-dev-api --region eu-west-2"
+  }
+}
