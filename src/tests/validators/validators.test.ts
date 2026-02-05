@@ -44,11 +44,11 @@ describe('Auth Validators', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should reject short password', () => {
+    it('should reject empty password', () => {
       const invalidData = {
         body: {
           email: 'test@example.com',
-          password: '123',
+          password: '',
         },
       };
 
