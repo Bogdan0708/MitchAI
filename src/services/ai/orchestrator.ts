@@ -6,20 +6,64 @@
  * 
  * Integrates with:
  * - MTC Client (credit deduction)
- * - Multiple AI providers (OpenAI, Anthropic, Google, Local)
+ * - Multiple AI providers (OpenAI, Anthropic, Google, Local, Ollama)
+ * - Response caching (Redis)
  * - Tenant feature flags
  */
 
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import Redis from 'ioredis';
+import crypto from 'crypto';
 import { getMTCClient } from '../blockchain/mtc-client';
 import { AIService, getServicePricing } from '../blockchain/types';
+import { buildOptimizedMessages, estimateTokens } from './prompt-templates';
+import { AIAnalytics } from './analytics';
+
+// ============================================================================
+// CACHING CONFIGURATION
+// ============================================================================
+
+const CACHE_CONFIG = {
+  enabled: process.env.AI_CACHE_ENABLED !== 'false', // Default: enabled
+  ttlSeconds: {
+    sentiment: 3600,        // 1 hour - sentiment rarely changes
+    summary: 1800,          // 30 min
+    translation: 86400,     // 24 hours - translations are deterministic
+    menu_description: 3600, // 1 hour
+    review_response: 1800,  // 30 min - personalized, shorter cache
+    chat: 0,                // No cache - conversational
+    content: 1800,          // 30 min
+    code: 0,                // No cache - context-dependent
+    image: 0,               // No cache
+    voice: 0,               // No cache
+  } as Record<AITaskType, number>,
+  maxCacheSize: 10000,      // Max cached items
+  keyPrefix: 'ai:cache:',
+};
+
+// ============================================================================
+// TOKEN LIMITS - Prevent runaway costs
+// ============================================================================
+
+const TOKEN_LIMITS: Record<AITaskType, { maxInput: number; maxOutput: number }> = {
+  sentiment: { maxInput: 500, maxOutput: 20 },      // Just "positive/negative/neutral"
+  summary: { maxInput: 4000, maxOutput: 300 },      // Condensed output
+  translation: { maxInput: 2000, maxOutput: 2500 }, // Might expand slightly
+  menu_description: { maxInput: 300, maxOutput: 100 }, // Short, punchy descriptions
+  review_response: { maxInput: 1000, maxOutput: 200 }, // Concise responses
+  chat: { maxInput: 4000, maxOutput: 1000 },        // Conversational
+  content: { maxInput: 2000, maxOutput: 500 },      // Marketing copy
+  code: { maxInput: 8000, maxOutput: 2000 },        // Code can be longer
+  image: { maxInput: 500, maxOutput: 100 },         // Prompts only
+  voice: { maxInput: 1000, maxOutput: 50 },         // TTS config
+};
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type AIProvider = 'openai' | 'anthropic' | 'google' | 'local' | 'abacus';
+export type AIProvider = 'openai' | 'anthropic' | 'google' | 'local' | 'ollama' | 'abacus' | 'remote';
 
 export type AITaskType = 
   | 'chat'              // General conversation
@@ -53,6 +97,8 @@ export interface AIRequestOptions {
   temperature?: number;
   streaming?: boolean;
   useCredits?: boolean;  // Default true if wallet provided
+  useOptimizedPrompts?: boolean; // Use task-specific optimized templates
+  templateInput?: Record<string, any>; // Input for optimized templates
 }
 
 export interface AIResponse {
@@ -151,31 +197,112 @@ const DEFAULT_MODELS: ModelConfig[] = [
     costPer1kOutput: 0.0003,
     supportedTasks: ['chat', 'review_response', 'menu_description', 'translation', 'sentiment', 'summary'],
   },
-  // Local (LM Studio / Ollama)
+  // Local LM Studio Models (GPU-accelerated)
   {
-    id: 'local-llm',
-    name: 'Local LLM',
+    id: 'lmstudio-gpt-oss-20b',
+    name: 'GPT-OSS 20B (Fast)',
     provider: 'local',
+    service: 'local-llm',
+    contextWindow: 32000,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    supportedTasks: ['chat', 'review_response', 'menu_description', 'translation', 'sentiment', 'summary', 'content'],
+    isDefault: true,
+  },
+  {
+    id: 'lmstudio-gpt-oss-120b',
+    name: 'GPT-OSS 120B (Quality)',
+    provider: 'local',
+    service: 'local-llm',
+    contextWindow: 32000,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    supportedTasks: ['content', 'code', 'chat'],
+  },
+  {
+    id: 'lmstudio-phi-4',
+    name: 'Phi-4 (Ultra Fast)',
+    provider: 'local',
+    service: 'local-llm',
+    contextWindow: 16000,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    supportedTasks: ['sentiment', 'summary', 'chat'],
+  },
+  {
+    id: 'lmstudio-qwen-coder',
+    name: 'Qwen3 Coder 30B',
+    provider: 'local',
+    service: 'local-llm',
+    contextWindow: 32000,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    supportedTasks: ['code'],
+  },
+  // Ollama Models (CPU fallback)
+  {
+    id: 'ollama-qwen3-8b',
+    name: 'Qwen3 8B (Ollama)',
+    provider: 'ollama',
     service: 'local-llm',
     contextWindow: 32000,
     costPer1kInput: 0,
     costPer1kOutput: 0,
     supportedTasks: ['chat', 'review_response', 'menu_description', 'translation', 'sentiment', 'summary'],
   },
+  {
+    id: 'ollama-deepseek-r1',
+    name: 'DeepSeek R1 8B (Reasoning)',
+    provider: 'ollama',
+    service: 'local-llm',
+    contextWindow: 32000,
+    costPer1kInput: 0,
+    costPer1kOutput: 0,
+    supportedTasks: ['chat', 'code', 'content'],
+  },
 ];
 
-// Task to recommended model mapping
+// LM Studio model ID mapping (internal ID → actual model name in LM Studio)
+// JIT loading enabled: models load on-demand, unload after 60min idle
+const LMSTUDIO_MODEL_MAP: Record<string, string> = {
+  // Fast & efficient (1-2s response)
+  'lmstudio-gpt-oss-20b': 'openai/gpt-oss-20b',      // Primary workhorse
+  'lmstudio-phi-4': 'phi-4',                          // Fast, small
+  
+  // Quality models (slower JIT load, better output)
+  'lmstudio-gpt-oss-120b': 'openai/gpt-oss-120b',    // Premium quality
+  'lmstudio-qwen-coder': 'qwen/qwen3-coder-30b',     // Code specialist
+  'lmstudio-qwq-32b': 'qwen/qwq-32b',                // Reasoning/thinking
+  'lmstudio-llama-70b': 'meta/llama-3.3-70b',        // Large general
+  
+  // Specialized
+  'lmstudio-devstral': 'mistralai/devstral-small-2-2512', // Dev tasks
+};
+
+// Ollama model ID mapping (CPU fallback)
+const OLLAMA_MODEL_MAP: Record<string, string> = {
+  'ollama-qwen3-8b': 'qwen3:8b',
+  'ollama-deepseek-r1': 'deepseek-r1:8b',
+};
+
+// Task to recommended model mapping - LOCAL FIRST for cost optimization
+// gpt-oss-20b is fastest (1.5s) - use for everything except heavy tasks
 const TASK_MODEL_PREFERENCES: Record<AITaskType, string[]> = {
-  chat: ['gpt-4o', 'claude-sonnet-4-5', 'local-llm'],
-  review_response: ['claude-sonnet-4-5', 'gpt-4o', 'gpt-4o-mini'],
-  menu_description: ['gpt-4o', 'claude-sonnet-4-5', 'local-llm'],
-  translation: ['gpt-4o-mini', 'claude-haiku-3-5', 'gemini-2.0-flash'],
-  sentiment: ['claude-haiku-3-5', 'gpt-4o-mini', 'gemini-2.0-flash'],
-  content: ['claude-sonnet-4-5', 'gpt-4o'],
-  summary: ['gemini-2.0-flash', 'gpt-4o-mini', 'claude-haiku-3-5'],
-  code: ['claude-sonnet-4-5', 'gpt-4o'],
-  image: ['gpt-4o'], // Placeholder - needs DALL-E/Flux integration
-  voice: ['gpt-4o'], // Placeholder - needs TTS integration
+  // All standard tasks → gpt-oss-20b (1.5s, FREE)
+  sentiment: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gemini-2.0-flash'],
+  summary: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gemini-2.0-flash'],
+  translation: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gemini-2.0-flash'],
+  chat: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
+  review_response: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
+  menu_description: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
+  
+  // Heavy tasks → gpt-oss-120b when quality critical
+  content: ['lmstudio-gpt-oss-20b', 'lmstudio-gpt-oss-120b', 'claude-sonnet-4-5'],
+  code: ['lmstudio-gpt-oss-20b', 'lmstudio-qwen-coder', 'claude-sonnet-4-5'],
+  
+  // Special tasks (need external APIs)
+  image: ['gpt-4o'], // Needs DALL-E
+  voice: ['gpt-4o'], // Needs TTS
 };
 
 // ============================================================================
@@ -185,16 +312,166 @@ const TASK_MODEL_PREFERENCES: Record<AITaskType, string[]> = {
 export class AIOrchestrator {
   private openai: OpenAI | null = null;
   private anthropic: Anthropic | null = null;
+  private redis: Redis | null = null;
   private localBaseUrl: string;
+  private ollamaBaseUrl: string;
   private models: Map<string, ModelConfig>;
   private providerConfigs: Map<AIProvider, ProviderConfig>;
+  private cacheStats = { hits: 0, misses: 0 };
+  private analytics: AIAnalytics;
 
-  constructor() {
+  constructor(redis?: Redis) {
+    this.redis = redis || null;
+    this.analytics = new AIAnalytics(undefined, redis || undefined);
     this.localBaseUrl = process.env.LOCAL_LLM_URL || 'http://localhost:1234/v1';
+    this.ollamaBaseUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
     this.models = new Map(DEFAULT_MODELS.map(m => [m.id, m]));
     this.providerConfigs = new Map();
     
     this.initializeProviders();
+    
+    if (this.redis && CACHE_CONFIG.enabled) {
+      console.log('[AI Orchestrator] Response caching enabled');
+    }
+    console.log('[AI Orchestrator] Usage analytics enabled');
+  }
+  
+  // --------------------------------------------------------------------------
+  // CACHING
+  // --------------------------------------------------------------------------
+  
+  /**
+   * Generate cache key from request
+   */
+  private generateCacheKey(request: AIRequest): string {
+    const content = request.messages.map(m => m.content).join('|');
+    const hash = crypto.createHash('md5')
+      .update(`${request.taskType}:${content}`)
+      .digest('hex');
+    return `${CACHE_CONFIG.keyPrefix}${request.taskType}:${hash}`;
+  }
+  
+  /**
+   * Get cached response
+   */
+  private async getCachedResponse(request: AIRequest): Promise<AIResponse | null> {
+    if (!this.redis || !CACHE_CONFIG.enabled) return null;
+    
+    const ttl = CACHE_CONFIG.ttlSeconds[request.taskType];
+    if (ttl === 0) return null; // Task not cacheable
+    
+    try {
+      const key = this.generateCacheKey(request);
+      const cached = await this.redis.get(key);
+      if (cached) {
+        this.cacheStats.hits++;
+        const response = JSON.parse(cached) as AIResponse;
+        response.cached = true;
+        console.log(`[AI Cache] HIT for ${request.taskType} (${this.cacheStats.hits} hits)`);
+        return response;
+      }
+      this.cacheStats.misses++;
+    } catch (error) {
+      console.error('[AI Cache] Get error:', error);
+    }
+    return null;
+  }
+  
+  /**
+   * Cache response
+   */
+  private async cacheResponse(request: AIRequest, response: AIResponse): Promise<void> {
+    if (!this.redis || !CACHE_CONFIG.enabled || !response.success) return;
+    
+    const ttl = CACHE_CONFIG.ttlSeconds[request.taskType];
+    if (ttl === 0) return; // Task not cacheable
+    
+    try {
+      const key = this.generateCacheKey(request);
+      await this.redis.setex(key, ttl, JSON.stringify(response));
+      console.log(`[AI Cache] Stored ${request.taskType} response (TTL: ${ttl}s)`);
+    } catch (error) {
+      console.error('[AI Cache] Set error:', error);
+    }
+  }
+  
+  /**
+   * Get cache statistics
+   */
+  getCacheStats(): { hits: number; misses: number; hitRate: string } {
+    const total = this.cacheStats.hits + this.cacheStats.misses;
+    const hitRate = total > 0 ? ((this.cacheStats.hits / total) * 100).toFixed(1) + '%' : '0%';
+    return { ...this.cacheStats, hitRate };
+  }
+  
+  // --------------------------------------------------------------------------
+  // TOKEN LIMITS
+  // --------------------------------------------------------------------------
+  
+  /**
+   * Apply token limits to request based on task type
+   * Returns the effective maxTokens to use
+   */
+  private applyTokenLimits(request: AIRequest): number {
+    const limits = TOKEN_LIMITS[request.taskType];
+    const requestedMax = request.options?.maxTokens || 2048;
+    
+    // Use the smaller of requested and limit
+    const effectiveMax = Math.min(requestedMax, limits.maxOutput);
+    
+    // Log if we're limiting
+    if (requestedMax > limits.maxOutput) {
+      console.log(`[AI Orchestrator] Token limit applied: ${requestedMax} → ${effectiveMax} for ${request.taskType}`);
+    }
+    
+    return effectiveMax;
+  }
+  
+  /**
+   * Truncate input if it exceeds limit
+   */
+  private truncateInput(request: AIRequest): AIRequest {
+    const limits = TOKEN_LIMITS[request.taskType];
+    const maxInputChars = limits.maxInput * 4; // Rough estimate: 1 token ≈ 4 chars
+    
+    const truncatedMessages = request.messages.map(msg => {
+      if (msg.content.length > maxInputChars) {
+        console.log(`[AI Orchestrator] Input truncated: ${msg.content.length} → ${maxInputChars} chars`);
+        return {
+          ...msg,
+          content: msg.content.substring(0, maxInputChars) + '...[truncated]'
+        };
+      }
+      return msg;
+    });
+    
+    return { ...request, messages: truncatedMessages };
+  }
+  
+  /**
+   * Apply optimized prompt templates if enabled
+   */
+  private applyOptimizedPrompts(request: AIRequest): AIRequest {
+    if (!request.options?.useOptimizedPrompts || !request.options?.templateInput) {
+      return request;
+    }
+    
+    const optimizedMessages = buildOptimizedMessages(
+      request.taskType,
+      request.options.templateInput
+    );
+    
+    const originalTokens = estimateTokens(request.messages.map(m => m.content).join(' '));
+    const optimizedTokens = estimateTokens(optimizedMessages.map(m => m.content).join(' '));
+    
+    if (optimizedTokens < originalTokens) {
+      console.log(`[AI Orchestrator] Prompt optimized: ${originalTokens} → ${optimizedTokens} tokens (${Math.round((1 - optimizedTokens/originalTokens) * 100)}% savings)`);
+    }
+    
+    return {
+      ...request,
+      messages: optimizedMessages,
+    };
   }
 
   // --------------------------------------------------------------------------
@@ -231,13 +508,51 @@ export class AIOrchestrator {
       });
     }
 
-    // Local LLM (always available as fallback)
+    // Local LLM Studio (GPU-accelerated, primary local provider)
     this.providerConfigs.set('local', {
       provider: 'local',
       enabled: true,
       baseUrl: this.localBaseUrl,
       models: DEFAULT_MODELS.filter(m => m.provider === 'local'),
     });
+    console.log(`[AI Orchestrator] LM Studio configured: ${this.localBaseUrl}`);
+
+    // Ollama (CPU fallback when LM Studio unavailable)
+    this.providerConfigs.set('ollama', {
+      provider: 'ollama',
+      enabled: true,
+      baseUrl: this.ollamaBaseUrl,
+      models: DEFAULT_MODELS.filter(m => m.provider === 'ollama'),
+    });
+    console.log(`[AI Orchestrator] Ollama configured: ${this.ollamaBaseUrl}`);
+
+    // Remote AI Service (GCP) - cloud fallback when local unavailable
+    if (process.env.AI_SERVICE_URL) {
+      this.providerConfigs.set('remote', {
+        provider: 'remote',
+        enabled: true,
+        baseUrl: process.env.AI_SERVICE_URL,
+        models: [
+          {
+            id: 'remote-gpt-4o-mini',
+            name: 'Remote GPT-4o Mini',
+            provider: 'remote',
+            service: 'gpt4o-mini',
+            contextWindow: 128000,
+            costPer1kInput: 0.00015,
+            costPer1kOutput: 0.0006,
+            supportedTasks: ['chat', 'review_response', 'menu_description', 'translation', 'sentiment', 'content', 'summary'],
+            isDefault: true,
+          },
+        ],
+      });
+      // Also add remote models to the models map for selection
+      const remoteModels = this.providerConfigs.get('remote')?.models || [];
+      for (const model of remoteModels) {
+        this.models.set(model.id, model);
+      }
+      console.log(`[AI Orchestrator] Remote AI service configured: ${process.env.AI_SERVICE_URL}`);
+    }
 
     console.log('[AI Orchestrator] Initialized with providers:', 
       Array.from(this.providerConfigs.keys()).filter(p => this.providerConfigs.get(p)?.enabled)
@@ -263,6 +578,11 @@ export class AIOrchestrator {
       '429',
       '503',
       '529',
+      'econnrefused',
+      'fetch failed',
+      'connection refused',
+      'network error',
+      'timeout',
     ];
     const lowerError = error.toLowerCase();
     return retryablePatterns.some(pattern => lowerError.includes(pattern));
@@ -277,8 +597,16 @@ export class AIOrchestrator {
       .filter(m => this.isProviderAvailable(m.provider))
       .filter(m => !excludeProviders.has(m.provider))
       .sort((a, b) => {
-        // Prefer OpenAI > Local > others for fallback
-        const priority: Record<AIProvider, number> = { openai: 1, local: 2, anthropic: 3, google: 4, abacus: 5 };
+        // Prefer Local > Ollama > Remote > Cloud (cost optimization)
+        const priority: Record<AIProvider, number> = { 
+          local: 0,    // LM Studio (GPU, fastest, free)
+          ollama: 1,   // Ollama (CPU fallback, free)
+          remote: 2,   // GCP AI Service (cloud, uses credits)
+          openai: 3,   // OpenAI direct
+          anthropic: 4,// Claude direct
+          google: 5,   // Gemini direct
+          abacus: 6 
+        };
         return (priority[a.provider] || 99) - (priority[b.provider] || 99);
       });
   }
@@ -293,8 +621,28 @@ export class AIOrchestrator {
     let lastError: string | undefined;
 
     try {
+      // 0. Check cache first (huge cost savings!)
+      const cachedResponse = await this.getCachedResponse(request);
+      if (cachedResponse) {
+        return {
+          ...cachedResponse,
+          latencyMs: Date.now() - startTime,
+        };
+      }
+      
+      // 0.5. Apply optimized prompts (if enabled)
+      let processedRequest = this.applyOptimizedPrompts(request);
+      
+      // 0.6. Apply token limits (cost control)
+      processedRequest = this.truncateInput(processedRequest);
+      const effectiveMaxTokens = this.applyTokenLimits(processedRequest);
+      processedRequest.options = {
+        ...processedRequest.options,
+        maxTokens: effectiveMaxTokens,
+      };
+      
       // 1. Select model based on task and preferences
-      let model = this.selectModel(request.taskType, request.options);
+      let model = this.selectModel(processedRequest.taskType, processedRequest.options);
       
       if (!model) {
         return {
@@ -308,8 +656,8 @@ export class AIOrchestrator {
 
       // 2. Check and deduct credits if wallet provided
       let creditsUsed = 0;
-      if (request.walletAddress && request.options?.useCredits !== false) {
-        const creditResult = await this.deductCredits(request.walletAddress, model.service);
+      if (processedRequest.walletAddress && processedRequest.options?.useCredits !== false) {
+        const creditResult = await this.deductCredits(processedRequest.walletAddress, model.service);
         if (!creditResult.success) {
           return {
             success: false,
@@ -327,14 +675,19 @@ export class AIOrchestrator {
         triedProviders.add(model.provider);
         console.log(`[AI Orchestrator] Trying ${model.provider}/${model.id}...`);
         
-        const response = await this.routeToProvider(model, request);
+        const response = await this.routeToProvider(model, processedRequest);
 
         if (response.success) {
-          return {
+          const finalResponse = {
             ...response,
             creditsUsed,
             latencyMs: Date.now() - startTime,
           };
+          // Cache successful response for future requests
+          await this.cacheResponse(processedRequest, finalResponse);
+          // Record usage analytics
+          await this.analytics.recordUsage(processedRequest.tenantId, processedRequest.taskType, finalResponse);
+          return finalResponse;
         }
 
         // Check if we should try a fallback
@@ -343,7 +696,7 @@ export class AIOrchestrator {
           console.log(`[AI Orchestrator] ${model.provider} failed with retryable error: ${response.error}`);
           console.log(`[AI Orchestrator] Looking for fallback provider...`);
           
-          const fallbacks = this.getFallbackModels(request.taskType, triedProviders);
+          const fallbacks = this.getFallbackModels(processedRequest.taskType, triedProviders);
           if (fallbacks.length > 0) {
             model = fallbacks[0];
             console.log(`[AI Orchestrator] Falling back to ${model.provider}/${model.id}`);
@@ -476,6 +829,10 @@ export class AIOrchestrator {
         return this.callGoogle(model, request);
       case 'local':
         return this.callLocal(model, request);
+      case 'ollama':
+        return this.callOllama(model, request);
+      case 'remote':
+        return this.callRemote(model, request);
       default:
         throw new Error(`Unsupported provider: ${model.provider}`);
     }
@@ -603,7 +960,7 @@ export class AIOrchestrator {
   }
 
   // --------------------------------------------------------------------------
-  // LOCAL PROVIDER (LM STUDIO / OLLAMA)
+  // LOCAL PROVIDER (LM STUDIO - GPU Accelerated)
   // --------------------------------------------------------------------------
 
   private async callLocal(model: ModelConfig, request: AIRequest): Promise<AIResponse> {
@@ -613,19 +970,33 @@ export class AIOrchestrator {
     }
 
     try {
+      // Map internal model ID to actual LM Studio model name
+      const actualModelId = LMSTUDIO_MODEL_MAP[model.id] || 'openai/gpt-oss-20b';
+      
+      // JIT loading: first request may take 30-60s to load model into VRAM
+      // Subsequent requests are fast (~1-2s)
+      const JIT_TIMEOUT_MS = 90000; // 90s for model loading
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), JIT_TIMEOUT_MS);
+      
+      console.log(`[LM Studio] Requesting ${actualModelId} (JIT timeout: ${JIT_TIMEOUT_MS/1000}s)...`);
+      
       const response = await fetch(`${this.localBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: process.env.LOCAL_MODEL_ID || 'default',
+          model: actualModelId,
           messages: request.messages,
           max_tokens: request.options?.maxTokens || 2048,
           temperature: request.options?.temperature ?? 0.7,
         }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
-        throw new Error(`Local LLM returned ${response.status}`);
+        throw new Error(`LM Studio returned ${response.status}`);
       }
 
       const data = await response.json() as LocalLLMResponse;
@@ -643,13 +1014,149 @@ export class AIOrchestrator {
         latencyMs: 0,
       };
     } catch (error) {
-      console.error('[Local LLM] Error:', error);
+      console.error('[LM Studio] Error:', error);
       return {
         success: false,
         provider: 'local',
         model: model.id,
-        error: error instanceof Error ? error.message : 'Local LLM request failed',
+        error: error instanceof Error ? error.message : 'LM Studio request failed',
         latencyMs: 0,
+      };
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // OLLAMA PROVIDER (CPU Fallback)
+  // --------------------------------------------------------------------------
+
+  private async callOllama(model: ModelConfig, request: AIRequest): Promise<AIResponse> {
+    interface OllamaResponse {
+      message?: { content?: string };
+      prompt_eval_count?: number;
+      eval_count?: number;
+    }
+
+    try {
+      // Map internal model ID to actual Ollama model name
+      const actualModelId = OLLAMA_MODEL_MAP[model.id] || 'qwen3:8b';
+      
+      // Ollama also supports on-demand loading (slower on CPU)
+      const OLLAMA_TIMEOUT_MS = 120000; // 120s for CPU inference
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
+      
+      console.log(`[Ollama] Requesting ${actualModelId} (timeout: ${OLLAMA_TIMEOUT_MS/1000}s)...`);
+      
+      const response = await fetch(`${this.ollamaBaseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: actualModelId,
+          messages: request.messages,
+          stream: false,
+          options: {
+            num_predict: request.options?.maxTokens || 2048,
+            temperature: request.options?.temperature ?? 0.7,
+          },
+        }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Ollama returned ${response.status}`);
+      }
+
+      const data = await response.json() as OllamaResponse;
+
+      return {
+        success: true,
+        content: data.message?.content || '',
+        provider: 'ollama',
+        model: model.id,
+        usage: {
+          promptTokens: data.prompt_eval_count || 0,
+          completionTokens: data.eval_count || 0,
+          totalTokens: (data.prompt_eval_count || 0) + (data.eval_count || 0),
+        },
+        latencyMs: 0,
+      };
+    } catch (error) {
+      console.error('[Ollama] Error:', error);
+      return {
+        success: false,
+        provider: 'ollama',
+        model: model.id,
+        error: error instanceof Error ? error.message : 'Ollama request failed',
+        latencyMs: 0,
+      };
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // REMOTE AI SERVICE PROVIDER (GCP)
+  // --------------------------------------------------------------------------
+
+  private async callRemote(model: ModelConfig, request: AIRequest): Promise<AIResponse> {
+    const serviceUrl = process.env.AI_SERVICE_URL;
+    if (!serviceUrl) {
+      return {
+        success: false,
+        provider: 'remote',
+        model: model.id,
+        error: 'AI_SERVICE_URL not configured',
+        latencyMs: 0,
+      };
+    }
+
+    interface RemoteAIResponse {
+      choices?: Array<{ message?: { content?: string } }>;
+      model?: string;
+      provider?: string;
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+    }
+
+    const startTime = Date.now();
+
+    try {
+      const response = await fetch(`${serviceUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: request.messages,
+          max_tokens: request.options?.maxTokens || 2048,
+          temperature: request.options?.temperature ?? 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Remote AI service returned ${response.status}`);
+      }
+
+      const data = await response.json() as RemoteAIResponse;
+      const latencyMs = Date.now() - startTime;
+
+      return {
+        success: true,
+        content: data.choices?.[0]?.message?.content || '',
+        provider: 'remote',
+        model: data.model || model.id,
+        usage: {
+          promptTokens: data.usage?.prompt_tokens || 0,
+          completionTokens: data.usage?.completion_tokens || 0,
+          totalTokens: data.usage?.total_tokens || 0,
+        },
+        latencyMs,
+      };
+    } catch (error) {
+      console.error('[Remote AI] Error:', error);
+      return {
+        success: false,
+        provider: 'remote',
+        model: model.id,
+        error: error instanceof Error ? error.message : 'Remote AI request failed',
+        latencyMs: Date.now() - startTime,
       };
     }
   }
@@ -681,7 +1188,20 @@ export class AIOrchestrator {
       anthropic: this.providerConfigs.get('anthropic')?.enabled || false,
       google: this.providerConfigs.get('google')?.enabled || false,
       local: this.providerConfigs.get('local')?.enabled || false,
+      ollama: this.providerConfigs.get('ollama')?.enabled || false,
+      remote: this.providerConfigs.get('remote')?.enabled || false,
       abacus: false, // Reserved for future AbacusAI integration
+    };
+  }
+
+  /**
+   * Get usage analytics
+   */
+  getUsageStats() {
+    return {
+      cache: this.getCacheStats(),
+      session: this.analytics.getSessionStats(),
+      savings: this.analytics.getCostSavingsReport(),
     };
   }
 

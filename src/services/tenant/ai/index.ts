@@ -16,6 +16,7 @@ export { ClaudeProvider } from './claude.provider';
 export { PerplexityProvider } from './perplexity.provider';
 export { LMStudioProvider } from './lmstudio.provider';
 export { OllamaProvider } from './ollama.provider';
+export { RemoteAIProvider } from './remote.provider';
 
 // Router
 export { AIRouter, AIRouterConfig, createDefaultRouter } from './router';

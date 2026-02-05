@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Mitch Hospitality SaaS is a multi-tenant hospitality AI platform for restaurants and street food vendors. It uses PostgreSQL Row-Level Security (RLS) for tenant isolation, with JWT tokens containing `tenant_id` claims.
 
+**Monorepo Structure:**
+- Backend (Express.js) at repository root
+- Frontend (Next.js) in `frontend/` directory
+
 **Key Technologies:**
 - **Backend**: Express.js 4.18, TypeScript 5.3
 - **Database**: PostgreSQL 16 with RLS, Redis 7 for caching
@@ -76,8 +80,10 @@ npm run lint         # Lint frontend code
 ### Request Flow Pattern
 
 ```
-Request → RequestId → Helmet/CORS → TenantMiddleware → RateLimitMiddleware → validate() → Controller → Service → Database
+Request → /ping,/health,/ready (BEFORE CORS) → RequestId → Helmet/CORS → TenantMiddleware → RateLimitMiddleware → validate() → Controller → Service → Database
 ```
+
+**CRITICAL: Health endpoints MUST be before CORS middleware.** ALB/ELB health checks are server-to-server requests without `Origin` header. CORS middleware rejects requests without Origin in production, causing health checks to fail with 500 errors.
 
 Controllers handle HTTP concerns, Services contain business logic. Services are in `src/services/tenant/`.
 
@@ -207,9 +213,15 @@ Zod schemas in `src/validators/`:
 
 ## API Endpoints
 
+### Health Endpoints (Before CORS - No Auth)
+```
+GET  /ping                      - Simple pong response for ALB health checks
+GET  /health                    - Detailed health check (DB + Redis status)
+GET  /ready                     - Kubernetes/ECS readiness probe
+```
+
 ### Public Routes (No Auth)
 ```
-GET  /health                    - Health check (DB + Redis status)
 POST /onboard                   - Tenant signup with Stripe
 GET  /onboarding/check-slug     - Slug availability check
 POST /auth/login                - Email/password login
@@ -474,9 +486,84 @@ Start monitoring stack: `docker-compose --profile monitoring up -d`
 3. Add route in `api.routes.ts` with `validate(schema)`
 4. Ensure RLS-enabled table access
 
-## GCP Deployment
+## AWS Deployment (Production)
 
-Infrastructure is in `infrastructure/` with Terraform modules for GCP deployment.
+The application is deployed on AWS with the following architecture:
+
+### Production URLs
+- **Frontend**: `https://mitchfromtransylvania.com` (Amplify + Custom Domain)
+- **Frontend (www)**: `https://www.mitchfromtransylvania.com` (Amplify + Custom Domain)
+- **Frontend (Amplify default)**: `https://master.d19ti5682xc8uc.amplifyapp.com/` (Amplify)
+- **Backend API**: `https://api.mitchfromtransylvania.com/` (ECS + ALB)
+- **Domain**: `mitchfromtransylvania.com` (Cloudflare DNS)
+
+### Cloudflare DNS Records
+
+| Record | Type | Value | Proxy |
+|--------|------|-------|-------|
+| `@` (root) | CNAME | `d30b6s96j1j43g.cloudfront.net` | OFF |
+| `www` | CNAME | `d30b6s96j1j43g.cloudfront.net` | OFF |
+| `api` | CNAME | `mitch-dev-alb-449769852.eu-west-2.elb.amazonaws.com` | OFF |
+| `_4db1efe3b5dec50d572d4607a72dc41f` | CNAME | `_006be7bd5d0eb1d0e89ee3de80af4821.jkddzztszm.acm-validations.aws` | OFF |
+| `n8n` | CNAME | `e6e85394-0e60-4a6b-baef-db4683ec2f9d.cfargotunnel.com` | ON |
+
+### AWS Resources
+
+| Resource | Service | Purpose |
+|----------|---------|---------|
+| ECS Fargate | `mitch-cluster` | Backend API containers |
+| ECR | `mitch-dev-api` | Docker image registry |
+| ALB | `mitch-dev-alb` | Load balancer with HTTPS |
+| RDS | `mitch-postgres` | PostgreSQL 16 database |
+| ElastiCache | `mitch-redis` | Redis 7 cache |
+| Amplify | `SAAS_Agency` (d19ti5682xc8uc) | Next.js static frontend |
+
+### Deployment Commands
+
+```bash
+# Build and push Docker image
+docker build -t mitch-dev-api .
+aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 337270123670.dkr.ecr.eu-west-2.amazonaws.com
+docker tag mitch-dev-api:latest 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+docker push 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+
+# Force ECS redeploy
+aws ecs update-service --cluster mitch-cluster --service mitch-dev-api --force-new-deployment --region eu-west-2
+
+# Check ECS health
+aws ecs describe-services --cluster mitch-cluster --services mitch-dev-api --region eu-west-2 --query 'services[0].{running:runningCount,desired:desiredCount,status:status}'
+
+# Check target health
+aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:337270123670:targetgroup/mitch-dev-api-tg/506ab79f83d2f13d --region eu-west-2
+```
+
+### Frontend Deployment (Amplify)
+
+The frontend uses Next.js static export (`output: 'export'`) and deploys automatically via GitHub webhook.
+
+```bash
+# Manual redeploy
+aws amplify start-job --app-id d19ti5682xc8uc --branch-name master --job-type RELEASE --region eu-west-2
+```
+
+Build configuration is in `frontend/amplify.yml`:
+- Uses `npm install` (not `npm ci` - package-lock.json must be committed)
+- Outputs to `out/` directory
+- Platform: WEB (static), not WEB_COMPUTE (SSR)
+
+### AWS Infrastructure Files
+
+Located in `infrastructure/aws/`:
+- `task-definition.json` - ECS task definition with Secrets Manager
+- `cloudwatch-alarms.json` - CPU/memory/RDS alarms
+- `auto-scaling.json` - Auto-scaling policies
+- `setup-secrets.sh` - Create AWS Secrets Manager entries
+
+---
+
+## GCP Deployment (Alternative)
+
+Infrastructure is in `infrastructure/terraform/` with Terraform modules for GCP deployment.
 
 ### Deployment Commands
 

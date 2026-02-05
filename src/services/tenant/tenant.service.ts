@@ -26,17 +26,20 @@ export class TenantService {
 
   public async updateTenant(tenantId: string, data: any) {
     const { name, contactEmail, contactPhone, timezone, locale, settings } = data;
+    const mergedSettings = {
+      ...(contactPhone ? { contactPhone } : {}),
+      ...(timezone ? { timezone } : {}),
+      ...(locale ? { locale } : {}),
+      ...settings
+    };
     const result = await this.pool.query(
       `UPDATE tenants
       SET name = COALESCE($1, name),
-          contact_email = COALESCE($2, contact_email),
-          contact_phone = COALESCE($3, contact_phone),
-          timezone = COALESCE($4, timezone),
-          locale = COALESCE($5, locale),
-          settings = COALESCE($6, settings)
-      WHERE id = $7
+          email = COALESCE($2, email),
+          settings = settings || $3::jsonb
+      WHERE id = $4
       RETURNING *`,
-      [name, contactEmail, contactPhone, timezone, locale, settings, tenantId]
+      [name, contactEmail, JSON.stringify(mergedSettings), tenantId]
     );
     return result.rows[0];
   }

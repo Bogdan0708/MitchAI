@@ -210,7 +210,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       const available = result.rows.length === 0;
 
       // Generate suggestions if not available
-      let suggestions: string[] = [];
+      const suggestions: string[] = [];
       if (!available) {
         const baseSlug = slug.replace(/-\d+$/, '');
         for (let i = 1; i <= 3; i++) {
@@ -282,6 +282,41 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       } else {
         res.status(500).json({ error: 'Login failed', message: 'Unknown error' });
       }
+    }
+  });
+
+  // ============================================================================
+  // PUBLIC AI STATS (No auth required for monitoring)
+  // ============================================================================
+
+  /**
+   * Get AI system statistics - public endpoint for monitoring
+   * 
+   * GET /api/v1/ai/stats
+   */
+  router.get('/ai/stats', async (_req, res) => {
+    console.log('[AI Stats] Route hit');
+    try {
+      console.log('[AI Stats] Getting AI router...');
+      const aiRouter = getAIRouter(pool, redis);
+      console.log('[AI Stats] Got AI router');
+      
+      // Get provider status
+      console.log('[AI Stats] Getting status...');
+      const providerStatus = aiRouter.getAllStatus();
+      console.log('[AI Stats] Got status:', providerStatus?.length || 0, 'providers');
+      
+      res.json({
+        ok: true,
+        providers: providerStatus,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('[AI Stats] ERROR:', error);
+      res.status(500).json({
+        error: 'Failed to get AI stats',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
@@ -1477,8 +1512,9 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
 
       const result = await pool.query(`
         SELECT
-          t.name, t.slug, t.contact_email, t.onboarding_complete,
-          t.onboarding_step, t.settings,
+          t.name, t.slug, t.email as contact_email, 
+          COALESCE((t.settings->>'onboarding_complete')::boolean, false) as onboarding_complete,
+          COALESCE(t.settings->>'onboarding_step', 'business') as onboarding_step, t.settings,
           (SELECT COUNT(*) FROM locations WHERE tenant_id = t.id AND deleted_at IS NULL) as location_count,
           (SELECT COUNT(*) FROM menu_items WHERE tenant_id = t.id AND deleted_at IS NULL) as menu_count
         FROM tenants t
@@ -1582,23 +1618,21 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
         UPDATE tenants SET
           name = $1,
           slug = $2,
-          contact_email = $3,
-          contact_phone = $4,
-          business_type = $5,
-          tier_id = $6,
-          onboarding_complete = true,
-          onboarding_step = 'complete',
-          settings = settings || $7::jsonb,
+          email = $3,
+          tier_id = $4,
+          settings = settings || $5::jsonb,
           updated_at = NOW()
-        WHERE id = $8
+        WHERE id = $6
       `, [
         businessName,
         slug,
         contactEmail,
-        contactPhone || null,
-        businessType || 'restaurant',
         tierId,
         JSON.stringify({
+          onboarding_complete: true,
+          onboarding_step: 'complete',
+          contactPhone: contactPhone || null,
+          businessType: businessType || 'restaurant',
           selectedPlan: pricingTier,
           billingInterval: billingInterval || 'monthly',
           skippedLocation: !firstLocation

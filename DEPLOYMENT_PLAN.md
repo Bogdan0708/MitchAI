@@ -1,299 +1,468 @@
 # 🚀 Hospitality SaaS Deployment Plan
 
-**Created:** 2025-06-26  
-**Target:** Production deployment on GCP
+**Updated:** 2026-01-31  
+**Strategy:** Hybrid AWS (core) + GCP (AI services)
 
 ---
 
-## TL;DR - Three Options
+## Architecture Overview
 
-| Option | Monthly Cost | Best For |
-|--------|-------------|----------|
-| **MVP** | ~$45-75/mo | Testing with real users, early customers |
-| **Production** | ~$120-180/mo | 10-50 active tenants, reliable uptime |
-| **Scale** | ~$300-500/mo | 50+ tenants, high availability |
-
----
-
-## Option 1: MVP Deploy (~$45-75/mo)
-
-**Philosophy:** Scale-to-zero, minimal resources, accept cold starts
-
-### GCP Infrastructure
-
-| Service | Tier | Cost/mo | Notes |
-|---------|------|---------|-------|
-| Cloud SQL (PostgreSQL) | db-f1-micro | $9 | 0.6GB RAM, shared CPU |
-| Cloud Run (API) | Scale-to-zero | $0-25 | Pay per request, 2-5s cold start |
-| Cloud Run (Frontend) | Scale-to-zero | $0-15 | Pay per request |
-| Compute Engine (n8n+Redis) | e2-micro | $7 | 1GB RAM, good for light workflows |
-| VPC Connector | 2 instances | $12 | Required for Cloud SQL access |
-| Secret Manager | ~10 secrets | $1 | Negligible |
-| Artifact Registry | Storage | $1 | Docker images |
-| **GCP Subtotal** | | **$30-70** | |
-
-### External Services
-
-| Service | Tier | Cost/mo | Notes |
-|---------|------|---------|-------|
-| Qdrant Cloud | Free tier | $0 | 1GB storage, 1M vectors |
-| Stripe | Pay-as-you-go | $0 + 2.9% | No monthly fee |
-| SendGrid | Free tier | $0 | 100 emails/day |
-| OpenAI API | Pay-as-you-go | $5-20 | Depends on usage |
-| Anthropic API | Pay-as-you-go | $5-20 | Depends on usage |
-| Domain + SSL | Caddy auto-SSL | $12/yr | ~$1/mo |
-| **External Subtotal** | | **$11-42** | |
-
-### **MVP Total: ~$45-75/mo**
-
-### Pros/Cons
-
-✅ Cheapest option  
-✅ Scales to zero when idle  
-✅ Good for validating product  
-❌ Cold starts (2-5s) on first request  
-❌ Database limited (may need upgrade with 10+ tenants)  
-❌ n8n workflows may timeout on heavy tasks
-
----
-
-## Option 2: Production (~$120-180/mo)
-
-**Philosophy:** Always-on, no cold starts, room to grow
-
-### GCP Infrastructure
-
-| Service | Tier | Cost/mo | Notes |
-|---------|------|---------|-------|
-| Cloud SQL (PostgreSQL) | db-g1-small | $26 | 1.7GB RAM, better performance |
-| Cloud Run (API) | min_instances=1 | $25-40 | Always warm, no cold starts |
-| Cloud Run (Frontend) | min_instances=1 | $20-30 | Always warm |
-| Compute Engine (n8n+Redis) | e2-small | $13 | 2GB RAM, handles workflows |
-| VPC Connector | 2 instances | $12 | Required |
-| Secret Manager | ~15 secrets | $1 | |
-| Artifact Registry | Storage | $2 | |
-| Cloud Armor (WAF) | Basic | $5 | DDoS protection |
-| **GCP Subtotal** | | **$104-129** | |
-
-### External Services
-
-| Service | Tier | Cost/mo | Notes |
-|---------|------|---------|-------|
-| Qdrant Cloud | Starter | $25 | 4GB storage, better performance |
-| Stripe | Pay-as-you-go | $0 + 2.9% | |
-| SendGrid | Essentials | $20 | 50K emails/mo |
-| OpenAI API | Pay-as-you-go | $10-30 | |
-| Anthropic API | Pay-as-you-go | $10-30 | |
-| Domain | | $1 | |
-| **External Subtotal** | | **$66-106** | |
-
-### **Production Total: ~$120-180/mo**
-
-### Pros/Cons
-
-✅ No cold starts  
-✅ Handles 10-50 tenants comfortably  
-✅ Room for workflow automation  
-✅ Basic DDoS protection  
-❌ Higher base cost  
-❌ Need to scale manually as you grow
-
----
-
-## Option 3: Scale (~$300-500/mo)
-
-**Philosophy:** High availability, auto-scaling, production-hardened
-
-### GCP Infrastructure
-
-| Service | Tier | Cost/mo | Notes |
-|---------|------|---------|-------|
-| Cloud SQL (PostgreSQL) | db-custom-2-4096 | $70 | 2 vCPU, 4GB RAM, HA optional |
-| Cloud Run (API) | min=2, max=10 | $50-100 | Auto-scales, redundant |
-| Cloud Run (Frontend) | min=2, max=5 | $40-60 | |
-| Compute Engine (n8n+Redis) | e2-medium | $25 | 4GB RAM |
-| VPC Connector | 3 instances | $18 | |
-| Secret Manager | ~20 secrets | $2 | |
-| Cloud Armor (WAF) | Standard | $12 | Advanced rules |
-| Cloud CDN | Basic | $10 | Frontend caching |
-| Cloud Monitoring | Enhanced | $10 | Alerts, dashboards |
-| **GCP Subtotal** | | **$237-307** | |
-
-### External Services
-
-| Service | Tier | Cost/mo | Notes |
-|---------|------|---------|-------|
-| Qdrant Cloud | Business | $75 | 16GB, replicas |
-| Stripe | Pay-as-you-go | $0 + 2.9% | |
-| SendGrid | Pro | $90 | 100K emails/mo, dedicated IP |
-| OpenAI API | | $20-50 | |
-| Anthropic API | | $20-50 | |
-| Domain | | $1 | |
-| **External Subtotal** | | **$206-266** | |
-
-### **Scale Total: ~$300-500/mo**
-
----
-
-## 📋 Deployment Checklist
-
-### Phase 1: Prerequisites (30 min)
-
-- [ ] GCP account with billing enabled
-- [ ] `gcloud` CLI installed and authenticated
-- [ ] Terraform 1.5+ installed
-- [ ] Docker installed
-- [ ] Domain name ready (or use Cloud Run URLs initially)
-
-### Phase 2: External Services Setup (1-2 hours)
-
-- [ ] **Stripe Account**
-  - Create account at stripe.com
-  - Get API keys (test mode first)
-  - Set up webhook endpoint (after deploy)
-  
-- [ ] **SendGrid Account**
-  - Create account at sendgrid.com
-  - Verify sender domain
-  - Get API key
-  
-- [ ] **AI Providers**
-  - OpenAI API key (platform.openai.com)
-  - Anthropic API key (console.anthropic.com)
-  - Optional: Perplexity, Google AI
-  
-- [ ] **Qdrant Cloud** (optional, can self-host)
-  - Create cluster at cloud.qdrant.io
-  - Get API key and URL
-
-### Phase 3: GCP Infrastructure (30-60 min)
-
-```bash
-cd ~/hospitality-saas/infrastructure
-
-# Option A: One-command deploy (recommended)
-cd cli && npm install && npm run build && npm link
-hsp deploy -p YOUR_PROJECT_ID -b YOUR_BILLING_ID -e production
-
-# Option B: Manual with Makefile
-make deploy PROJECT=YOUR_PROJECT_ID ENV=production
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        CLOUDFLARE                                │
+│                    (DNS + CDN + DDoS)                           │
+└─────────────┬─────────────────────────────────┬─────────────────┘
+              │                                 │
+              ▼                                 ▼
+┌─────────────────────────┐     ┌─────────────────────────────────┐
+│         AWS             │     │            GCP                   │
+│  ┌──────────────────┐  │     │  ┌─────────────────────────────┐ │
+│  │   Amplify        │  │     │  │     Cloud Run (AI)          │ │
+│  │   (Frontend)     │  │     │  │  - LLM orchestration        │ │
+│  └──────────────────┘  │     │  │  - Vector search (Qdrant)   │ │
+│  ┌──────────────────┐  │     │  │  - AI-heavy workloads       │ │
+│  │   ALB + ECS      │  │     │  └─────────────────────────────┘ │
+│  │   (API)          │  │     └─────────────────────────────────┘
+│  └──────────────────┘  │
+│  ┌──────────────────┐  │
+│  │   RDS Postgres   │  │
+│  │   (Database)     │  │
+│  └──────────────────┘  │
+│  ┌──────────────────┐  │
+│  │   ElastiCache    │  │
+│  │   (Redis)        │  │
+│  └──────────────────┘  │
+└─────────────────────────┘
 ```
 
-### Phase 4: Secrets Configuration (15 min)
+---
+
+## Cost Breakdown
+
+| Component | Service | Monthly Cost | Notes |
+|-----------|---------|--------------|-------|
+| **Frontend** | AWS Amplify | ~$5-15 | Static hosting + builds |
+| **API** | ECS Fargate | ~$15-30 | 0.5 vCPU, 1GB RAM |
+| **Database** | RDS PostgreSQL | ~$15-25 | db.t3.micro |
+| **Cache** | ElastiCache Redis | ~$12-15 | cache.t3.micro |
+| **Load Balancer** | ALB | ~$18 | Fixed + usage |
+| **AI Services** | GCP Cloud Run | ~$10-30 | Pay per request |
+| **DNS/CDN** | Cloudflare | $0 | Free tier |
+| **TOTAL** | | **~$75-130/mo** | |
+
+---
+
+## Current Infrastructure Status
+
+### AWS (eu-west-2) ✅
+
+| Resource | Status | Details |
+|----------|--------|---------|
+| VPC | ✅ Default VPC | Using existing |
+| RDS PostgreSQL | ✅ Running | `mitch-postgres.cdlh3juxdrbo.eu-west-2.rds.amazonaws.com` |
+| ElastiCache Redis | ✅ Running | `mitch-redis.0qttdd.0001.euw2.cache.amazonaws.com:6379` |
+| ECR Repository | ✅ Created | `337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api` |
+| ECS Cluster | ✅ Created | `mitch-cluster` |
+| ECS Service | 🔄 Deploying | `mitch-dev-api` |
+| ALB | ✅ Running | `mitch-dev-alb-449769852.eu-west-2.elb.amazonaws.com` |
+| Amplify | ✅ Running | Frontend deployed |
+| IAM Role | ✅ Created | `ecsTaskExecutionRole` |
+
+### Cloudflare DNS ✅
+
+| Record | Type | Value | Status |
+|--------|------|-------|--------|
+| `@` (root) | CNAME | `d30b6s96j1j43g.cloudfront.net` | ✅ Active |
+| `www` | CNAME | `d30b6s96j1j43g.cloudfront.net` | ✅ Active |
+| `api` | CNAME | `mitch-dev-alb-449769852.eu-west-2.elb.amazonaws.com` | ✅ Active |
+| `_4db1efe3b5dec50d572d4607a72dc41f` | CNAME | `_006be7bd5d0eb1d0e89ee3de80af4821.jkddzztszm.acm-validations.aws` | ✅ Cert validation |
+| `n8n` | CNAME | `e6e85394-0e60-4a6b-baef-db4683ec2f9d.cfargotunnel.com` | ✅ Active (proxied) |
+
+---
+
+## AWS CLI Deployment Commands
+
+### Prerequisites
 
 ```bash
-# Set all secrets
-hsp secrets -e production --set stripe-secret-key
-hsp secrets -e production --set stripe-webhook-secret
-hsp secrets -e production --set openai-api-key
-hsp secrets -e production --set anthropic-api-key
-hsp secrets -e production --set sendgrid-api-key
-hsp secrets -e production --set jwt-secret
+# Install AWS CLI v2
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip && sudo ./aws/install
+
+# Configure credentials
+aws configure
+# Region: eu-west-2
 ```
 
-### Phase 5: Database Migration (10 min)
+### 1. Create ECR Repository
 
 ```bash
-# Run migrations
-make migrate ENV=production
+aws ecr create-repository \
+  --repository-name mitch-dev-api \
+  --region eu-west-2
 ```
 
-### Phase 6: Verification (15 min)
+### 2. Build & Push Docker Image
 
 ```bash
-# Check status
-hsp status -e production
+# Authenticate Docker to ECR
+aws ecr get-login-password --region eu-west-2 | \
+  docker login --username AWS --password-stdin \
+  337270123670.dkr.ecr.eu-west-2.amazonaws.com
+
+# Build and push
+cd /home/godja/hospitality-saas
+npm run build
+docker build -t mitch-dev-api .
+docker tag mitch-dev-api:latest \
+  337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+docker push 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+```
+
+### 3. Create RDS PostgreSQL
+
+```bash
+aws rds create-db-instance \
+  --db-instance-identifier mitch-postgres \
+  --db-instance-class db.t3.micro \
+  --engine postgres \
+  --engine-version 15 \
+  --master-username mitch_admin \
+  --master-user-password "YOUR_SECURE_PASSWORD" \
+  --allocated-storage 20 \
+  --db-name mitch_hospitality \
+  --publicly-accessible \
+  --region eu-west-2
+```
+
+### 4. Create ElastiCache Redis
+
+```bash
+aws elasticache create-cache-cluster \
+  --cache-cluster-id mitch-redis \
+  --cache-node-type cache.t3.micro \
+  --engine redis \
+  --num-cache-nodes 1 \
+  --region eu-west-2
+```
+
+### 5. Create ECS Cluster
+
+```bash
+aws ecs create-cluster \
+  --cluster-name mitch-cluster \
+  --region eu-west-2
+```
+
+### 6. Create IAM Role for ECS
+
+```bash
+# Create role
+aws iam create-role \
+  --role-name ecsTaskExecutionRole \
+  --assume-role-policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": {"Service": "ecs-tasks.amazonaws.com"},
+      "Action": "sts:AssumeRole"
+    }]
+  }'
+
+# Attach policy
+aws iam attach-role-policy \
+  --role-name ecsTaskExecutionRole \
+  --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+```
+
+### 7. Create CloudWatch Log Group
+
+```bash
+aws logs create-log-group \
+  --log-group-name /ecs/mitch-dev-api \
+  --region eu-west-2
+```
+
+### 8. Register Task Definition
+
+```bash
+aws ecs register-task-definition \
+  --family mitch-dev-api \
+  --network-mode awsvpc \
+  --requires-compatibilities FARGATE \
+  --cpu 512 \
+  --memory 1024 \
+  --execution-role-arn arn:aws:iam::337270123670:role/ecsTaskExecutionRole \
+  --container-definitions '[{
+    "name": "mitch-dev-api",
+    "image": "337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest",
+    "cpu": 512,
+    "memory": 1024,
+    "portMappings": [{"containerPort": 3000, "protocol": "tcp"}],
+    "environment": [
+      {"name": "NODE_ENV", "value": "production"},
+      {"name": "PORT", "value": "3000"},
+      {"name": "DATABASE_URL", "value": "postgresql://USER:PASS@HOST:5432/DB"},
+      {"name": "REDIS_URL", "value": "redis://REDIS_HOST:6379"},
+      {"name": "JWT_SECRET", "value": "YOUR_JWT_SECRET"},
+      {"name": "STRIPE_SECRET_KEY", "value": "sk_test_xxx"},
+      {"name": "CORS_ORIGINS", "value": "https://mitchfromtransylvania.com"}
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/ecs/mitch-dev-api",
+        "awslogs-region": "eu-west-2",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "essential": true
+  }]' \
+  --region eu-west-2
+```
+
+### 9. Create Application Load Balancer
+
+```bash
+# Create ALB
+aws elbv2 create-load-balancer \
+  --name mitch-dev-alb \
+  --subnets subnet-xxx subnet-yyy subnet-zzz \
+  --security-groups sg-xxx \
+  --scheme internet-facing \
+  --type application \
+  --region eu-west-2
+
+# Create target group
+aws elbv2 create-target-group \
+  --name mitch-dev-api-tg \
+  --protocol HTTP \
+  --port 3000 \
+  --vpc-id vpc-xxx \
+  --target-type ip \
+  --health-check-path /ping \
+  --health-check-interval-seconds 30 \
+  --region eu-west-2
+
+# Create listener (HTTPS)
+aws elbv2 create-listener \
+  --load-balancer-arn arn:aws:elasticloadbalancing:eu-west-2:xxx:loadbalancer/app/mitch-dev-alb/xxx \
+  --protocol HTTPS \
+  --port 443 \
+  --certificates CertificateArn=arn:aws:acm:eu-west-2:xxx:certificate/xxx \
+  --default-actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:xxx:targetgroup/mitch-dev-api-tg/xxx \
+  --region eu-west-2
+```
+
+### 10. Create ECS Service
+
+```bash
+aws ecs create-service \
+  --cluster mitch-cluster \
+  --service-name mitch-dev-api \
+  --task-definition mitch-dev-api:5 \
+  --desired-count 1 \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={
+    subnets=[subnet-xxx,subnet-yyy],
+    securityGroups=[sg-xxx],
+    assignPublicIp=ENABLED
+  }" \
+  --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:xxx,containerName=mitch-dev-api,containerPort=3000" \
+  --region eu-west-2
+```
+
+### 11. Security Group Rules
+
+```bash
+# Allow ECS to access Redis
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-REDIS_SG \
+  --protocol tcp \
+  --port 6379 \
+  --source-group sg-ECS_SG \
+  --region eu-west-2
+
+# Allow ECS to access RDS
+aws ec2 authorize-security-group-ingress \
+  --group-id sg-RDS_SG \
+  --protocol tcp \
+  --port 5432 \
+  --source-group sg-ECS_SG \
+  --region eu-west-2
+```
+
+---
+
+## Deployment Commands (Quick Reference)
+
+### Deploy New Version
+
+```bash
+# 1. Build
+cd /home/godja/hospitality-saas
+npm run build
+docker build -t mitch-dev-api .
+
+# 2. Push
+aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 337270123670.dkr.ecr.eu-west-2.amazonaws.com
+docker tag mitch-dev-api:latest 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+docker push 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+
+# 3. Deploy
+aws ecs update-service --cluster mitch-cluster --service mitch-dev-api --force-new-deployment --region eu-west-2
+```
+
+### Check Status
+
+```bash
+# Service status
+aws ecs describe-services --cluster mitch-cluster --services mitch-dev-api --region eu-west-2 \
+  --query 'services[0].{running:runningCount,desired:desiredCount,status:status}'
+
+# Task logs
+aws logs tail /ecs/mitch-dev-api --since 5m --region eu-west-2
 
 # Health check
-make health ENV=production
-
-# Get URLs
-make urls ENV=production
+curl https://api.mitchfromtransylvania.com/ping
+curl https://api.mitchfromtransylvania.com/api/v1/health
 ```
 
-### Phase 7: DNS & SSL (if using custom domain)
-
-1. Point domain A record to Cloud Run URL
-2. Or use Cloud Run domain mapping:
-```bash
-gcloud run domain-mappings create --service=hospitality-saas-prod-api \
-  --domain=api.yourdomain.com --region=us-central1
-```
-
-### Phase 8: Post-Deploy (30 min)
-
-- [ ] Create first admin tenant via API
-- [ ] Configure Stripe webhook URL
-- [ ] Test payment flow (test mode)
-- [ ] Test email sending
-- [ ] Import n8n workflows from `~/dev/mitch/main/mitch-production/workflows/`
-- [ ] Set up monitoring alerts
-
----
-
-## 💰 Cost Comparison Table
-
-| Component | MVP | Production | Scale |
-|-----------|-----|------------|-------|
-| Database | $9 | $26 | $70 |
-| API (Cloud Run) | $0-25 | $25-40 | $50-100 |
-| Frontend (Cloud Run) | $0-15 | $20-30 | $40-60 |
-| n8n VM | $7 | $13 | $25 |
-| Networking | $13 | $13 | $20 |
-| Qdrant | $0 | $25 | $75 |
-| Email | $0 | $20 | $90 |
-| AI APIs | $10-40 | $20-60 | $40-100 |
-| **TOTAL** | **$45-75** | **$120-180** | **$300-500** |
-
----
-
-## 🎯 Recommendation
-
-**Start with MVP ($45-75/mo)** because:
-
-1. You need to validate with real users first
-2. Cold starts are annoying but not fatal for B2B SaaS
-3. You can upgrade Cloud SQL with zero downtime
-4. Cloud Run scales automatically if you get traffic spikes
-5. Easy to upgrade to Production tier when you hit 5-10 paying customers
-
-**Upgrade trigger points:**
-- 5+ tenants → Upgrade Cloud SQL to db-g1-small
-- Cold starts annoying users → Set min_instances=1
-- 10+ tenants → Move to Production tier
-- 50+ tenants → Scale tier with HA
-
----
-
-## ⚡ Quick Start Command
+### Rollback
 
 ```bash
-cd ~/hospitality-saas/infrastructure/cli
-npm install && npm run build && npm link
+# List task definition revisions
+aws ecs list-task-definitions --family-prefix mitch-dev-api --region eu-west-2
 
-# Deploy MVP
-hsp deploy -e production --dry-run  # Preview first
-hsp deploy -e production             # Actually deploy
+# Rollback to specific revision
+aws ecs update-service --cluster mitch-cluster --service mitch-dev-api \
+  --task-definition mitch-dev-api:PREVIOUS_REVISION --region eu-west-2
 ```
 
 ---
 
-## 📊 Revenue Breakeven
+## GCP AI Services (Future)
 
-| Tier | Monthly Cost | Breakeven (at $49/tenant) | Breakeven (at $149/tenant) |
-|------|-------------|---------------------------|----------------------------|
-| MVP | $60 | 2 tenants | 1 tenant |
-| Production | $150 | 4 tenants | 2 tenants |
-| Scale | $400 | 9 tenants | 3 tenants |
+AI-heavy workloads will be deployed to GCP Cloud Run:
 
-You're profitable quickly. 😮‍💨
+```bash
+# Deploy AI service to GCP
+gcloud run deploy mitch-ai \
+  --image gcr.io/PROJECT/mitch-ai:latest \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars "OPENAI_API_KEY=xxx,ANTHROPIC_API_KEY=xxx"
+```
+
+**Why GCP for AI?**
+- Better GPU/TPU support for future ML workloads
+- Native Vertex AI integration
+- Cost-effective for burst AI traffic
 
 ---
 
-## Questions?
+## Environment Variables
 
-Just ask. I can:
-- Run the deployment commands
-- Help debug issues
-- Set up monitoring
-- Configure the n8n workflows
+| Variable | Description | Where |
+|----------|-------------|-------|
+| `DATABASE_URL` | PostgreSQL connection string | ECS Task Definition |
+| `REDIS_URL` | Redis connection string | ECS Task Definition |
+| `JWT_SECRET` | JWT signing secret | ECS Task Definition |
+| `STRIPE_SECRET_KEY` | Stripe API key | ECS Task Definition |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook secret | ECS Task Definition |
+| `CORS_ORIGINS` | Allowed CORS origins | ECS Task Definition |
+| `OPENAI_API_KEY` | OpenAI API key | ECS Task Definition |
+| `ANTHROPIC_API_KEY` | Anthropic API key | ECS Task Definition |
+
+---
+
+## Monitoring & Alerts
+
+### CloudWatch Alarms
+
+```bash
+# CPU alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name mitch-api-cpu-high \
+  --metric-name CPUUtilization \
+  --namespace AWS/ECS \
+  --statistic Average \
+  --period 300 \
+  --threshold 80 \
+  --comparison-operator GreaterThanThreshold \
+  --dimensions Name=ClusterName,Value=mitch-cluster Name=ServiceName,Value=mitch-dev-api \
+  --evaluation-periods 2 \
+  --alarm-actions arn:aws:sns:eu-west-2:xxx:alerts \
+  --region eu-west-2
+```
+
+---
+
+## Troubleshooting
+
+### Task Won't Start
+
+```bash
+# Check service events
+aws ecs describe-services --cluster mitch-cluster --services mitch-dev-api \
+  --query 'services[0].events[0:5]' --region eu-west-2
+
+# Check stopped tasks
+aws ecs list-tasks --cluster mitch-cluster --desired-status STOPPED --region eu-west-2
+aws ecs describe-tasks --cluster mitch-cluster --tasks TASK_ARN \
+  --query 'tasks[0].stoppedReason' --region eu-west-2
+```
+
+### Health Check Failing
+
+```bash
+# Check target health
+aws elbv2 describe-target-health \
+  --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:xxx:targetgroup/mitch-dev-api-tg/xxx \
+  --region eu-west-2
+
+# Check container logs
+aws logs tail /ecs/mitch-dev-api --since 10m --region eu-west-2
+```
+
+### Redis Connection Issues
+
+```bash
+# Verify security group allows ECS → Redis
+aws ec2 describe-security-group-rules \
+  --filters Name=group-id,Values=sg-REDIS_SG \
+  --query 'SecurityGroupRules[?FromPort==`6379`]' \
+  --region eu-west-2
+```
+
+---
+
+## URLs
+
+| Service | URL | Status |
+|---------|-----|--------|
+| Frontend | https://mitchfromtransylvania.com | ✅ Active |
+| Frontend (www) | https://www.mitchfromtransylvania.com | ✅ Active |
+| Frontend (Amplify default) | https://master.d19ti5682xc8uc.amplifyapp.com | ✅ Active |
+| API | https://api.mitchfromtransylvania.com | ✅ Active |
+| API Health | https://api.mitchfromtransylvania.com/ping | ✅ Active |
+| n8n | https://n8n.mitchfromtransylvania.com | ✅ Active |
+| Amplify Console | https://eu-west-2.console.aws.amazon.com/amplify |
+| ECS Console | https://eu-west-2.console.aws.amazon.com/ecs |
+
+---
+
+## Next Steps
+
+1. ✅ RDS PostgreSQL running
+2. ✅ ElastiCache Redis running
+3. ✅ ECS cluster and service created
+4. ✅ ALB configured with HTTPS
+5. ✅ Amplify frontend deployed
+6. ✅ ECS task health checks working
+7. ✅ Custom domain `mitchfromtransylvania.com` active (root + www)
+8. ✅ Custom domain `api.mitchfromtransylvania.com` active
+9. ⬜ Set up CloudWatch alarms
+11. ⬜ Configure auto-scaling
+12. ⬜ Deploy AI services to GCP
+13. ⬜ Set up CI/CD pipeline

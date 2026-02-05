@@ -4,7 +4,7 @@
  * Unified types for multi-provider AI integration
  */
 
-export type AIProvider = 'openai' | 'claude' | 'perplexity' | 'gemini' | 'lm_studio' | 'ollama';
+export type AIProvider = 'openai' | 'claude' | 'perplexity' | 'gemini' | 'lm_studio' | 'ollama' | 'remote';
 
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant';
@@ -188,6 +188,17 @@ export const PROVIDER_MODELS = {
       'qwen3-coder:30b': { input: 0, output: 0 },
       'deepseek-r1:8b': { input: 0, output: 0 },
       'nomic-embed-text': { input: 0, output: 0 }
+    }
+  },
+  remote: {
+    default: 'gpt-4o-mini',
+    models: ['gpt-4o-mini', 'gpt-4o', 'claude-sonnet-4-20250514', 'gemini-2.0-flash', 'sonar'],
+    costPer1kTokens: {
+      'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
+      'gpt-4o': { input: 0.005, output: 0.015 },
+      'claude-sonnet-4-20250514': { input: 0.003, output: 0.015 },
+      'gemini-2.0-flash': { input: 0.0001, output: 0.0004 },
+      'sonar': { input: 0.001, output: 0.001 }
     }
   }
 } as const;
