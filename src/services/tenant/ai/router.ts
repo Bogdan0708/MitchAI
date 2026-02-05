@@ -18,6 +18,7 @@ import { PerplexityProvider } from './perplexity.provider';
 import { GeminiProvider } from './gemini.provider';
 import { LMStudioProvider } from './lmstudio.provider';
 import { OllamaProvider } from './ollama.provider';
+import { RemoteAIProvider } from './remote.provider';
 import {
   AIProvider,
   AICompletionRequest,
@@ -160,6 +161,24 @@ export class AIRouter {
           ...providerConfigs.ollama
         })
       );
+    }
+
+    // Remote AI Service (GCP) - highest priority when configured
+    if (process.env.AI_SERVICE_URL) {
+      this.providers.set(
+        'remote',
+        new RemoteAIProvider({
+          provider: 'remote',
+          enabled: true,
+          priority: 0, // Highest priority - use remote service first
+          defaultModel: 'gpt-4o-mini',
+          maxTokens: 4096,
+          temperature: 0.7,
+          rateLimit: 1000,
+          ...providerConfigs.remote
+        })
+      );
+      console.log(`[AIRouter] Remote AI service configured: ${process.env.AI_SERVICE_URL}`);
     }
 
     console.log(
@@ -367,6 +386,28 @@ export class AIRouter {
 
     await Promise.all(checks);
     return results as Record<AIProvider, boolean>;
+  }
+
+  /**
+   * Get orchestrator-level statistics
+   * Returns provider availability and configuration info
+   */
+  getOrchestratorStats(): {
+    providers: { name: string; available: boolean; latencyMs?: number }[];
+    localFirst: boolean;
+    defaultProvider: string;
+  } {
+    const providerStats = Array.from(this.providers.entries()).map(([name, provider]) => ({
+      name,
+      available: provider.getStatus().available,
+      latencyMs: provider.getStatus().latencyMs,
+    }));
+    
+    return {
+      providers: providerStats,
+      localFirst: this.config.localFirst || false,
+      defaultProvider: this.config.defaultProvider || 'openai',
+    };
   }
 
   /**

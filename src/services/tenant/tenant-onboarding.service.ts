@@ -69,17 +69,26 @@ export interface OnboardingResult {
 
 export class TenantOnboardingService {
   private pool: Pool;
-  private stripe: Stripe;
+  private stripe: Stripe | null;
+  private stripeEnabled: boolean;
   private jwtSecret: string;
   private emailService: EmailService;
 
   constructor(pool: Pool, stripeSecretKey: string, jwtSecret: string) {
     this.pool = pool;
-    this.stripe = new Stripe(stripeSecretKey, {
-      apiVersion: '2025-11-17.clover'
-    });
+    // Only initialize Stripe if a real key is provided (not a placeholder)
+    this.stripeEnabled = Boolean(stripeSecretKey && 
+                         !stripeSecretKey.includes('placeholder') && 
+                         stripeSecretKey.startsWith('sk_'));
+    this.stripe = this.stripeEnabled 
+      ? new Stripe(stripeSecretKey, { apiVersion: '2025-11-17.clover' })
+      : null;
     this.jwtSecret = jwtSecret;
     this.emailService = new EmailService(pool);
+    
+    if (!this.stripeEnabled) {
+      console.warn('[TenantOnboarding] Stripe disabled - using placeholder key');
+    }
   }
 
   /**
@@ -103,20 +112,21 @@ export class TenantOnboardingService {
       // 3. Get pricing configuration
       const pricingConfig = await this.getPricingConfig(client, request.pricingTier);
 
-      // 4. Create Stripe customer
-      const stripeCustomer = await this.createStripeCustomer(request);
-      stripeCustomerId = stripeCustomer.id;
-
-      // 5. Create Stripe subscription (if payment method provided)
+      // 4. Create Stripe customer (if Stripe is enabled)
       let subscription: Stripe.Subscription | undefined;
-      if (request.paymentMethodId) {
-        // Attach payment method to customer
-        await this.stripe.paymentMethods.attach(request.paymentMethodId, {
-          customer: stripeCustomerId
-        });
+      if (this.stripeEnabled && this.stripe) {
+        const stripeCustomer = await this.createStripeCustomer(request);
+        stripeCustomerId = stripeCustomer.id;
 
-        // Set as default payment method
-        await this.stripe.customers.update(stripeCustomerId, {
+        // 5. Create Stripe subscription (if payment method provided)
+        if (request.paymentMethodId) {
+          // Attach payment method to customer
+          await this.stripe.paymentMethods.attach(request.paymentMethodId, {
+            customer: stripeCustomerId
+          });
+
+          // Set as default payment method
+          await this.stripe.customers.update(stripeCustomerId, {
           invoice_settings: {
             default_payment_method: request.paymentMethodId
           }
@@ -130,7 +140,8 @@ export class TenantOnboardingService {
           pricingConfig
         );
         stripeSubscriptionId = subscription.id;
-      }
+        }
+      } // End Stripe-enabled block
 
       // 6. Create tenant in database
       const tenantId = await this.createTenant(client, {
@@ -254,7 +265,7 @@ export class TenantOnboardingService {
     tier: string
   ): Promise<any> {
     const result = await client.query(
-      'SELECT * FROM pricing_tiers_config WHERE tier = $1',
+      'SELECT *, name as tier FROM pricing_tiers WHERE name = $1',
       [tier]
     );
 
@@ -269,7 +280,7 @@ export class TenantOnboardingService {
    * Create Stripe customer
    */
   private async createStripeCustomer(request: OnboardingRequest): Promise<Stripe.Customer> {
-    return await this.stripe.customers.create({
+    return await this.stripe!.customers.create({
       name: request.businessName,
       email: request.contactEmail,
       phone: request.contactPhone,
@@ -297,7 +308,7 @@ export class TenantOnboardingService {
 
     // Note: In production, you should have pre-created Price IDs in Stripe
     // This is a simplified example
-    const price = await this.stripe.prices.create({
+    const price = await this.stripe!.prices.create({
       unit_amount: priceAmount,
       currency: 'usd',
       recurring: {
@@ -309,7 +320,7 @@ export class TenantOnboardingService {
       }
     });
 
-    return await this.stripe.subscriptions.create({
+    return await this.stripe!.subscriptions.create({
       customer: customerId,
       items: [{ price: price.id }],
       payment_behavior: 'default_incomplete',
@@ -329,28 +340,28 @@ export class TenantOnboardingService {
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + 14); // 14-day trial
 
+    // Map pricing tier name to tier_id
+    const tierMap: Record<string, number> = { starter: 1, professional: 2, enterprise: 3 };
+    const tierId = tierMap[data.pricingTier] || 1;
+
     const result = await client.query(
       `INSERT INTO tenants (
-        id, slug, name, contact_email, contact_phone,
-        pricing_tier, subscription_status, status,
-        stripe_customer_id, stripe_subscription_id,
-        trial_ends_at, timezone, locale
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        id, slug, name, email, tier_id, status, stripe_customer_id, settings
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id`,
       [
         tenantId,
         data.slug,
         data.businessName,
         data.contactEmail,
-        data.contactPhone,
-        data.pricingTier,
-        data.subscriptionStatus,
+        tierId,
         data.subscriptionStatus === 'active' ? 'active' : 'trial',
-        data.stripeCustomerId,
-        data.stripeSubscriptionId,
-        data.subscriptionStatus === 'trialing' ? trialEndsAt : null,
-        data.timezone || 'UTC',
-        data.locale || 'en-US'
+        data.stripeCustomerId || null,
+        JSON.stringify({
+          timezone: data.timezone || 'UTC',
+          locale: data.locale || 'en-US',
+          contactPhone: data.contactPhone || null
+        })
       ]
     );
 
@@ -371,8 +382,8 @@ export class TenantOnboardingService {
     const result = await client.query(
       `INSERT INTO tenant_users (
         id, tenant_id, email, password_hash,
-        first_name, last_name, role, is_active, email_verified
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        first_name, last_name, role, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING id`,
       [
         userId,
@@ -382,8 +393,7 @@ export class TenantOnboardingService {
         request.adminFirstName,
         request.adminLastName,
         'owner',
-        true,
-        true // Auto-verify admin email
+        true
       ]
     );
 
@@ -430,7 +440,7 @@ export class TenantOnboardingService {
 
     for (let i = 0; i < categories.length; i++) {
       await client.query(
-        `INSERT INTO menu_categories (id, tenant_id, name, sort_order, is_active)
+        `INSERT INTO menu_categories (id, tenant_id, name, display_order, is_active)
         VALUES ($1, $2, $3, $4, $5)`,
         [uuidv4(), tenantId, categories[i], i, true]
       );
@@ -483,6 +493,7 @@ export class TenantOnboardingService {
     _customerId: string,
     subscriptionId?: string
   ): Promise<void> {
+    if (!this.stripeEnabled || !this.stripe) return;
     try {
       if (subscriptionId) {
         await this.stripe.subscriptions.cancel(subscriptionId);
@@ -557,8 +568,8 @@ export class TenantOnboardingService {
       const tenant = tenantResult.rows[0];
       const pricingConfig = await this.getPricingConfig(client, newTier);
 
-      // Update Stripe subscription
-      if (tenant.stripe_subscription_id) {
+      // Update Stripe subscription (only if Stripe is enabled)
+      if (this.stripeEnabled && this.stripe && tenant.stripe_subscription_id) {
         // Update existing subscription
         await this.stripe.subscriptions.update(tenant.stripe_subscription_id, {
           items: [{

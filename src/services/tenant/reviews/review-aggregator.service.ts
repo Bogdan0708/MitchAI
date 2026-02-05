@@ -309,8 +309,8 @@ export class ReviewAggregatorService {
     // In production, this would call the actual platform APIs
     // For now, we'll implement the structure that queues analysis jobs
 
-    let newReviews = 0;
-    let updatedReviews = 0;
+    const newReviews = 0;
+    const updatedReviews = 0;
     const errors: string[] = [];
 
     // This is a placeholder for actual platform API integration
