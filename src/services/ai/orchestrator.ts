@@ -286,21 +286,32 @@ const OLLAMA_MODEL_MAP: Record<string, string> = {
 };
 
 // Task to recommended model mapping - LOCAL FIRST for cost optimization
-// gpt-oss-20b is fastest (1.5s) - use for everything except heavy tasks
+// Strategy: gpt-oss-20b for light tasks (fast, low VRAM)
+//           gpt-oss-120b for heavy tasks (quality, high VRAM)
+// Note: 120b uses significant VRAM - only use when quality matters
 const TASK_MODEL_PREFERENCES: Record<AITaskType, string[]> = {
-  // All standard tasks → gpt-oss-20b (1.5s, FREE)
+  // =========================================================================
+  // LIGHT TASKS → gpt-oss-20b (fast, ~3s warm, low VRAM)
+  // Use for quick, simple operations that don't need deep reasoning
+  // =========================================================================
   sentiment: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gemini-2.0-flash'],
   summary: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gemini-2.0-flash'],
   translation: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gemini-2.0-flash'],
-  chat: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
-  review_response: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
-  menu_description: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
   
-  // Heavy tasks → gpt-oss-120b when quality critical
-  content: ['lmstudio-gpt-oss-20b', 'lmstudio-gpt-oss-120b', 'claude-sonnet-4-5'],
-  code: ['lmstudio-gpt-oss-20b', 'lmstudio-qwen-coder', 'claude-sonnet-4-5'],
+  // =========================================================================
+  // HEAVY TASKS → gpt-oss-120b (quality, ~5-7s warm, high VRAM)
+  // Use for customer-facing responses where quality matters
+  // Falls back to 20b if 120b unavailable (VRAM constraints)
+  // =========================================================================
+  chat: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
+  review_response: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
+  menu_description: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
+  content: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'claude-sonnet-4-5'],
+  code: ['lmstudio-gpt-oss-120b', 'lmstudio-qwen-coder', 'claude-sonnet-4-5'],
   
-  // Special tasks (need external APIs)
+  // =========================================================================
+  // SPECIAL TASKS (need external APIs)
+  // =========================================================================
   image: ['gpt-4o'], // Needs DALL-E
   voice: ['gpt-4o'], // Needs TTS
 };
