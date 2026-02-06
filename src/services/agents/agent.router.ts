@@ -8,10 +8,20 @@ import { AgentService } from './agent.service';
 import { CreateAgentInput, UpdateAgentInput, ConfigureChannelInput } from './types';
 import { logger } from '../logger.service';
 
+// Use Express Request with tenant context added by TenantMiddleware
 interface AuthenticatedRequest extends Request {
-  tenantId?: string;
-  userId?: string;
-  userRole?: string;
+  tenant?: {
+    tenantId: string;
+    userId: string;
+    userEmail: string;
+    userRole: string;
+    tier: {
+      name: string;
+      maxApiCalls: number;
+      rateLimitPerMinute: number;
+      features: Record<string, boolean>;
+    };
+  };
 }
 
 export function createAgentRouter(agentService: AgentService): Router {
@@ -19,7 +29,7 @@ export function createAgentRouter(agentService: AgentService): Router {
 
   // Middleware to ensure tenant context
   const requireTenant = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (!req.tenantId) {
+    if (!req.tenant?.tenantId) {
       return res.status(401).json({ error: 'Tenant context required' });
     }
     next();
@@ -27,7 +37,7 @@ export function createAgentRouter(agentService: AgentService): Router {
 
   // Middleware to require admin role
   const requireAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    if (req.userRole !== 'admin' && req.userRole !== 'owner') {
+    if (req.tenant?.userRole !== 'admin' && req.tenant?.userRole !== 'owner') {
       return res.status(403).json({ error: 'Admin access required' });
     }
     next();
@@ -39,7 +49,7 @@ export function createAgentRouter(agentService: AgentService): Router {
    */
   router.get('/', requireTenant, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const agent = await agentService.getAgent(req.tenantId!);
+      const agent = await agentService.getAgent(req.tenant!.tenantId);
       
       if (!agent) {
         return res.status(404).json({ error: 'Agent not configured' });
@@ -47,7 +57,7 @@ export function createAgentRouter(agentService: AgentService): Router {
 
       res.json({ agent });
     } catch (error) {
-      logger.error('Failed to get agent', { error, tenantId: req.tenantId });
+      logger.error('Failed to get agent', { error, tenantId: req.tenant?.tenantId });
       res.status(500).json({ error: 'Failed to get agent' });
     }
   });
@@ -70,11 +80,11 @@ export function createAgentRouter(agentService: AgentService): Router {
         menu_context_enabled: req.body.menu_context_enabled,
       };
 
-      const agent = await agentService.createAgent(req.tenantId!, input);
+      const agent = await agentService.createAgent(req.tenant!.tenantId, input);
       res.status(201).json({ agent });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Failed to create agent', { error, tenantId: req.tenantId });
+      logger.error('Failed to create agent', { error, tenantId: req.tenant?.tenantId });
       
       if (message.includes('already exists')) {
         return res.status(409).json({ error: message });
@@ -109,11 +119,11 @@ export function createAgentRouter(agentService: AgentService): Router {
         }
       });
 
-      const agent = await agentService.updateAgent(req.tenantId!, input);
+      const agent = await agentService.updateAgent(req.tenant!.tenantId, input);
       res.json({ agent });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Failed to update agent', { error, tenantId: req.tenantId });
+      logger.error('Failed to update agent', { error, tenantId: req.tenant?.tenantId });
       
       if (message.includes('not found')) {
         return res.status(404).json({ error: 'Agent not found' });
@@ -141,11 +151,11 @@ export function createAgentRouter(agentService: AgentService): Router {
         return res.status(400).json({ error: 'Invalid channel. Use "telegram" or "whatsapp"' });
       }
 
-      await agentService.configureChannel(req.tenantId!, input);
+      await agentService.configureChannel(req.tenant!.tenantId, input);
       res.json({ success: true, message: `${input.channel} configured successfully` });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Failed to configure channel', { error, tenantId: req.tenantId });
+      logger.error('Failed to configure channel', { error, tenantId: req.tenant?.tenantId });
       
       if (message.includes('not found')) {
         return res.status(404).json({ error: 'Agent not found' });
@@ -161,11 +171,11 @@ export function createAgentRouter(agentService: AgentService): Router {
    */
   router.post('/start', requireTenant, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const agent = await agentService.activateAgent(req.tenantId!);
+      const agent = await agentService.activateAgent(req.tenant!.tenantId);
       res.json({ agent, message: 'Agent activated successfully' });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Failed to activate agent', { error, tenantId: req.tenantId });
+      logger.error('Failed to activate agent', { error, tenantId: req.tenant?.tenantId });
       
       if (message.includes('not found')) {
         return res.status(404).json({ error: 'Agent not found' });
@@ -181,11 +191,11 @@ export function createAgentRouter(agentService: AgentService): Router {
    */
   router.post('/stop', requireTenant, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const agent = await agentService.deactivateAgent(req.tenantId!);
+      const agent = await agentService.deactivateAgent(req.tenant!.tenantId);
       res.json({ agent, message: 'Agent deactivated successfully' });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Failed to deactivate agent', { error, tenantId: req.tenantId });
+      logger.error('Failed to deactivate agent', { error, tenantId: req.tenant?.tenantId });
       
       if (message.includes('not found')) {
         return res.status(404).json({ error: 'Agent not found' });
@@ -201,11 +211,11 @@ export function createAgentRouter(agentService: AgentService): Router {
    */
   router.get('/stats', requireTenant, async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const stats = await agentService.getStats(req.tenantId!);
+      const stats = await agentService.getStats(req.tenant!.tenantId);
       res.json({ stats });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Failed to get agent stats', { error, tenantId: req.tenantId });
+      logger.error('Failed to get agent stats', { error, tenantId: req.tenant?.tenantId });
       
       if (message.includes('not found')) {
         return res.status(404).json({ error: 'Agent not found' });
@@ -227,10 +237,10 @@ export function createAgentRouter(agentService: AgentService): Router {
         offset: req.query.offset ? parseInt(req.query.offset as string) : 0,
       };
 
-      const conversations = await agentService.getConversations(req.tenantId!, options);
+      const conversations = await agentService.getConversations(req.tenant!.tenantId, options);
       res.json({ conversations });
     } catch (error) {
-      logger.error('Failed to get conversations', { error, tenantId: req.tenantId });
+      logger.error('Failed to get conversations', { error, tenantId: req.tenant?.tenantId });
       res.status(500).json({ error: 'Failed to get conversations' });
     }
   });
@@ -242,11 +252,11 @@ export function createAgentRouter(agentService: AgentService): Router {
   router.get('/conversations/:id/messages', requireTenant, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const messages = await agentService.getMessages(req.tenantId!, req.params.id, limit);
+      const messages = await agentService.getMessages(req.tenant!.tenantId, req.params.id, limit);
       res.json({ messages });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Failed to get messages', { error, tenantId: req.tenantId });
+      logger.error('Failed to get messages', { error, tenantId: req.tenant?.tenantId });
       
       if (message.includes('not found')) {
         return res.status(404).json({ error: 'Conversation not found' });
