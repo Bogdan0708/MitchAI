@@ -1365,6 +1365,138 @@ class ApiClient {
       }>
     }>>(`/ai/usage${query}`)
   }
+
+  // ============================================================================
+  // AI AGENT MANAGEMENT
+  // ============================================================================
+
+  async getAgent() {
+    return this.request<ApiResponse<{ agent: TenantAgent }>>('/tenant/agent')
+  }
+
+  async createAgent(data: CreateAgentInput) {
+    return this.request<ApiResponse<{ agent: TenantAgent }>>('/tenant/agent', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateAgent(data: UpdateAgentInput) {
+    return this.request<ApiResponse<{ agent: TenantAgent }>>('/tenant/agent', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async configureAgentChannel(channel: 'telegram' | 'whatsapp', credentials: {
+    telegram_bot_token?: string
+    telegram_bot_username?: string
+    whatsapp_phone_id?: string
+    whatsapp_access_token?: string
+  }) {
+    return this.request<ApiResponse<{ success: boolean; message: string }>>('/tenant/agent/channel', {
+      method: 'POST',
+      body: JSON.stringify({ channel, ...credentials }),
+    })
+  }
+
+  async startAgent() {
+    return this.request<ApiResponse<{ agent: TenantAgent; message: string }>>('/tenant/agent/start', {
+      method: 'POST',
+    })
+  }
+
+  async stopAgent() {
+    return this.request<ApiResponse<{ agent: TenantAgent; message: string }>>('/tenant/agent/stop', {
+      method: 'POST',
+    })
+  }
+
+  async getAgentStats() {
+    return this.request<ApiResponse<{ stats: AgentStats }>>('/tenant/agent/stats')
+  }
+
+  async getAgentConversations(params?: { status?: string; limit?: number; offset?: number }) {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return this.request<ApiResponse<{ conversations: AgentConversation[] }>>(`/tenant/agent/conversations?${query}`)
+  }
+}
+
+// Agent Types
+export interface TenantAgent {
+  id: string
+  tenant_id: string
+  name: string
+  avatar_url?: string
+  system_prompt?: string
+  model_preference: 'local' | 'anthropic' | 'openai' | 'auto'
+  temperature: number
+  max_tokens: number
+  capabilities: AgentCapabilities
+  custom_knowledge?: {
+    faqs?: Array<{ question: string; answer: string }>
+    policies?: Record<string, string>
+    custom_instructions?: string
+  }
+  menu_context_enabled: boolean
+  daily_message_limit: number
+  monthly_token_limit: number
+  messages_today: number
+  tokens_this_month: number
+  status: 'active' | 'inactive' | 'error'
+  error_message?: string
+  last_active_at?: string
+  created_at: string
+  updated_at: string
+  telegram_bot_username?: string
+  has_telegram: boolean
+  has_whatsapp: boolean
+}
+
+export interface AgentCapabilities {
+  can_view_menu: boolean
+  can_view_hours: boolean
+  can_handle_reservations: boolean
+  can_process_orders: boolean
+  can_access_loyalty: boolean
+  languages: string[]
+}
+
+export interface AgentStats {
+  messages_today: number
+  messages_limit: number
+  tokens_this_month: number
+  tokens_limit: number
+  active_conversations: number
+  total_conversations: number
+  avg_response_time_ms?: number
+}
+
+export interface AgentConversation {
+  id: string
+  channel: 'telegram' | 'whatsapp' | 'webchat'
+  customer_name?: string
+  message_count: number
+  status: 'active' | 'closed' | 'escalated'
+  escalated_to_human: boolean
+  last_message_at?: string
+  created_at: string
+}
+
+export interface CreateAgentInput {
+  name?: string
+  avatar_url?: string
+  system_prompt?: string
+  model_preference?: 'local' | 'anthropic' | 'openai' | 'auto'
+  temperature?: number
+  max_tokens?: number
+  capabilities?: Partial<AgentCapabilities>
+  custom_knowledge?: TenantAgent['custom_knowledge']
+  menu_context_enabled?: boolean
+}
+
+export interface UpdateAgentInput extends CreateAgentInput {
+  status?: 'active' | 'inactive'
 }
 
 export const api = new ApiClient()
