@@ -288,24 +288,23 @@ const OLLAMA_MODEL_MAP: Record<string, string> = {
 // Task to recommended model mapping - LOCAL FIRST for cost optimization
 // Strategy: gpt-oss-20b for light tasks (fast, low VRAM)
 //           gpt-oss-120b for heavy tasks (quality, high VRAM)
-// Note: 120b uses significant VRAM - only use when quality matters
+// Fallback: Cloud APIs (fast) - NO Ollama (CPU is too slow)
 const TASK_MODEL_PREFERENCES: Record<AITaskType, string[]> = {
   // =========================================================================
   // LIGHT TASKS → gpt-oss-20b (fast, ~3s warm, low VRAM)
-  // Use for quick, simple operations that don't need deep reasoning
+  // Fallback: Gemini Flash (cheap, fast cloud)
   // =========================================================================
-  sentiment: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gemini-2.0-flash'],
-  summary: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gemini-2.0-flash'],
-  translation: ['lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gemini-2.0-flash'],
+  sentiment: ['lmstudio-gpt-oss-20b', 'gemini-2.0-flash', 'gpt-4o-mini'],
+  summary: ['lmstudio-gpt-oss-20b', 'gemini-2.0-flash', 'gpt-4o-mini'],
+  translation: ['lmstudio-gpt-oss-20b', 'gemini-2.0-flash', 'gpt-4o-mini'],
   
   // =========================================================================
   // HEAVY TASKS → gpt-oss-120b (quality, ~5-7s warm, high VRAM)
-  // Use for customer-facing responses where quality matters
-  // Falls back to 20b if 120b unavailable (VRAM constraints)
+  // Fallback: 20b → Cloud (GPT-4o-mini or Claude)
   // =========================================================================
-  chat: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
-  review_response: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
-  menu_description: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'ollama-qwen3-8b', 'gpt-4o-mini'],
+  chat: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'gpt-4o-mini'],
+  review_response: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'gpt-4o-mini'],
+  menu_description: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'gpt-4o-mini'],
   content: ['lmstudio-gpt-oss-120b', 'lmstudio-gpt-oss-20b', 'claude-sonnet-4-5'],
   code: ['lmstudio-gpt-oss-120b', 'lmstudio-qwen-coder', 'claude-sonnet-4-5'],
   
