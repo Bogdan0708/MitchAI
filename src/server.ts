@@ -258,6 +258,118 @@ app.post('/webhooks/stripe', express.raw({ type: 'application/json' }), async (r
   }
 });
 
+// ============================================================================
+// AGENT WEBHOOKS (Telegram/WhatsApp - before body parsing)
+// ============================================================================
+
+import { AgentService } from './services/agents/agent.service';
+import { ChatService } from './services/agents/chat.service';
+
+// Telegram webhook
+app.post('/webhooks/telegram/:tenantId', express.json(), async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req.params;
+    const update = req.body;
+
+    // Validate Telegram update structure
+    if (!update.message && !update.callback_query) {
+      return res.json({ ok: true }); // Ignore non-message updates
+    }
+
+    const message = update.message || update.callback_query?.message;
+    if (!message?.text || !message?.chat?.id) {
+      return res.json({ ok: true });
+    }
+
+    const agentService = new AgentService(pool);
+    const chatService = new ChatService(pool, agentService);
+
+    // Process message
+    const response = await chatService.processMessage(tenantId, {
+      channel: 'telegram',
+      external_chat_id: message.chat.id.toString(),
+      external_message_id: message.message_id?.toString(),
+      message: message.text,
+      customer_name: message.from?.first_name || message.from?.username,
+    });
+
+    // Send response back to Telegram
+    if (response.message) {
+      const agent = await agentService.getAgent(tenantId);
+      if (agent?.has_telegram) {
+        // Note: In production, use Telegram Bot API to send response
+        // For now, just log - actual sending would require decrypting bot token
+        console.log(`Would send Telegram response to chat ${message.chat.id}: ${response.message.substring(0, 50)}...`);
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Telegram webhook error:', error);
+    res.json({ ok: true }); // Always respond 200 to Telegram
+  }
+});
+
+// WhatsApp webhook (verification)
+app.get('/webhooks/whatsapp/:tenantId', (req: Request, res: Response) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  // TODO: Validate token against stored webhook secret for tenant
+  if (mode === 'subscribe' && token) {
+    console.log('WhatsApp webhook verified for tenant:', req.params.tenantId);
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
+  }
+});
+
+// WhatsApp webhook (messages)
+app.post('/webhooks/whatsapp/:tenantId', express.json(), async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req.params;
+    const body = req.body;
+
+    // WhatsApp sends verification pings
+    if (body.object !== 'whatsapp_business_account') {
+      return res.sendStatus(200);
+    }
+
+    const entry = body.entry?.[0];
+    const changes = entry?.changes?.[0];
+    const value = changes?.value;
+    const messages = value?.messages;
+
+    if (!messages?.length) {
+      return res.sendStatus(200);
+    }
+
+    const message = messages[0];
+    if (message.type !== 'text') {
+      return res.sendStatus(200); // Only handle text messages for now
+    }
+
+    const agentService = new AgentService(pool);
+    const chatService = new ChatService(pool, agentService);
+
+    // Process message
+    await chatService.processMessage(tenantId, {
+      channel: 'whatsapp',
+      external_chat_id: message.from,
+      external_message_id: message.id,
+      message: message.text?.body || '',
+      customer_name: value.contacts?.[0]?.profile?.name,
+      customer_phone: message.from,
+    });
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('WhatsApp webhook error:', error);
+    res.sendStatus(200); // Always respond 200
+  }
+});
+
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

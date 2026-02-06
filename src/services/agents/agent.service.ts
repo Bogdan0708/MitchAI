@@ -261,10 +261,13 @@ export class AgentService {
         if (!row.telegram_bot_token_encrypted) {
           throw new Error('Telegram not configured');
         }
-        return {
+        const credentials: Record<string, string> = {
           bot_token: await decrypt(row.telegram_bot_token_encrypted),
-          webhook_secret: row.telegram_webhook_secret,
         };
+        if (row.telegram_webhook_secret) {
+          credentials.webhook_secret = row.telegram_webhook_secret;
+        }
+        return credentials;
       } else {
         if (!row.whatsapp_phone_id_encrypted) {
           throw new Error('WhatsApp not configured');
