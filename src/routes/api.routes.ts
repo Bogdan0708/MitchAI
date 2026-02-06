@@ -48,6 +48,10 @@ import { createContentRouter } from './content.routes';
 import { createIntelligenceRouter } from './intelligence.routes';
 import { createAIRouter } from './ai.routes';
 
+// Import multi-agent services
+import { AgentService } from '../services/agents/agent.service';
+import { createAgentRouter } from '../services/agents/agent.router';
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -1701,6 +1705,10 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
 
   // AI Orchestration routes
   router.use('/ai', createAIRouter(pool));
+
+  // Multi-agent management routes (Phase 1)
+  const agentService = new AgentService(pool);
+  router.use('/tenant/agent', createAgentRouter(agentService));
 
   return router;
 }

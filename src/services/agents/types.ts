@@ -138,6 +138,7 @@ export interface ChatRequest {
   channel: AgentChannel;
   external_chat_id: string;
   customer_name?: string;
+  customer_phone?: string;
   message: string;
   external_message_id?: string;
 }
