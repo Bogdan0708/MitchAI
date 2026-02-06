@@ -146,7 +146,13 @@ export default function AgentPage() {
         setTimeout(() => setSuccess(null), 3000)
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to create agent')
+      const message = err instanceof Error ? err.message : 'Failed to create agent'
+      // If 409, agent exists - refetch it
+      if (message.includes('409') || message.includes('already exists')) {
+        await fetchAgent()
+        return
+      }
+      setError(message)
     } finally {
       setIsSaving(false)
     }
