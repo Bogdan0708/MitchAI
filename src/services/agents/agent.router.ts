@@ -5,7 +5,8 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { AgentService } from './agent.service';
-import { CreateAgentInput, UpdateAgentInput, ConfigureChannelInput } from './types';
+import { ChatService } from './chat.service';
+import { CreateAgentInput, UpdateAgentInput, ConfigureChannelInput, ChatRequest } from './types';
 import { logger } from '../logger.service';
 
 // Use Express Request with tenant context added by TenantMiddleware
@@ -24,7 +25,7 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-export function createAgentRouter(agentService: AgentService): Router {
+export function createAgentRouter(agentService: AgentService, chatService: ChatService): Router {
   const router = Router();
 
   // Middleware to ensure tenant context
@@ -263,6 +264,55 @@ export function createAgentRouter(agentService: AgentService): Router {
       }
       
       res.status(500).json({ error: 'Failed to get messages' });
+    }
+  });
+
+  /**
+   * POST /api/v1/tenant/agent/chat
+   * Send a message and get AI response
+   */
+  router.post('/chat', requireTenant, async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const chatRequest: ChatRequest = {
+        message: req.body.message,
+        channel: req.body.channel || 'web',
+        external_chat_id: req.body.external_chat_id || req.body.sessionId || `web-${Date.now()}`,
+        conversation_id: req.body.conversation_id || req.body.sessionId,
+        customer_name: req.body.customer_name,
+        external_message_id: req.body.external_message_id,
+      };
+
+      if (!chatRequest.message?.trim()) {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+
+      const response = await chatService.processMessage(req.tenant!.tenantId, chatRequest);
+      res.json({
+        data: {
+          response: response.message,
+          conversation_id: response.conversation_id,
+          tokens_used: response.tokens_used,
+          model_used: response.model_used,
+          latency_ms: response.latency_ms,
+          escalated: response.escalated,
+          escalation_reason: response.escalation_reason,
+        },
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Chat error', { error, tenantId: req.tenant?.tenantId });
+      
+      if (message.includes('not configured')) {
+        return res.status(404).json({ error: 'Agent not configured' });
+      }
+      if (message.includes('not active')) {
+        return res.status(503).json({ error: 'Agent is not active' });
+      }
+      if (message.includes('limit')) {
+        return res.status(429).json({ error: 'Message or token limit reached' });
+      }
+      
+      res.status(500).json({ error: 'Failed to process message' });
     }
   });
 

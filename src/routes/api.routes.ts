@@ -4,9 +4,26 @@
  * Defines all API endpoints with tenant isolation and rate limiting
  */
 
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { Pool } from 'pg';
 import Redis from 'ioredis';
+import { logger } from '../services/logger.service';
+
+// Type for requests with tenant context
+interface AuthenticatedRequest extends Request {
+  tenant?: {
+    tenantId: string;
+    userId: string;
+    userEmail: string;
+    userRole: string;
+    tier: {
+      name: string;
+      maxApiCalls: number;
+      rateLimitPerMinute: number;
+      features: Record<string, boolean>;
+    };
+  };
+}
 import { TenantMiddleware } from '../middleware/tenant.middleware';
 import { RateLimitMiddleware } from '../middleware/rateLimit.middleware';
 import { TenantController } from '../controllers/tenant.controller';
@@ -50,6 +67,7 @@ import { createAIRouter } from './ai.routes';
 
 // Import multi-agent services
 import { AgentService } from '../services/agents/agent.service';
+import { ChatService } from '../services/agents/chat.service';
 import { createAgentRouter } from '../services/agents/agent.router';
 
 // ============================================================================
@@ -1708,7 +1726,116 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
 
   // Multi-agent management routes (Phase 1)
   const agentService = new AgentService(pool);
-  router.use('/tenant/agent', createAgentRouter(agentService));
+  const chatService = new ChatService(pool, agentService);
+  const agentRouter = createAgentRouter(agentService, chatService);
+  router.use('/tenant/agent', agentRouter);
+
+  // ============================================================================
+  // FRONTEND COMPATIBILITY ROUTES
+  // These alias the agent routes to match what the frontend expects
+  // ============================================================================
+
+  // GET /chat/sessions → /tenant/agent/conversations
+  router.get('/chat/sessions', tenantMiddleware.authenticate, async (req, res) => {
+    const tenantId = (req as AuthenticatedRequest).tenant?.tenantId;
+    if (!tenantId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const options = {
+        status: req.query.status as string | undefined,
+        limit: req.query.limit ? parseInt(req.query.limit as string) : 50,
+        offset: req.query.page ? (parseInt(req.query.page as string) - 1) * 50 : 0,
+      };
+      const conversations = await agentService.getConversations(tenantId, options);
+      
+      // Map to frontend expected format (webchat → web for frontend compatibility)
+      const channelMap: Record<string, string> = { webchat: 'web', telegram: 'telegram', whatsapp: 'whatsapp' };
+      res.json({
+        items: conversations.map((c: { id: string; channel: string; customer_name?: string; status: string; message_count: number; escalated_to_human: boolean; created_at: Date; last_message_at?: Date }) => ({
+          id: c.id,
+          sessionId: c.id,
+          customerName: c.customer_name || 'Guest',
+          channel: channelMap[c.channel] || c.channel,
+          status: c.status,
+          messageCount: c.message_count,
+          resolvedByAi: c.status === 'closed' && !c.escalated_to_human,
+          escalatedToHuman: c.escalated_to_human,
+          createdAt: c.created_at,
+          updatedAt: c.last_message_at || c.created_at,
+          lastMessage: null, // Would need extra query to populate
+        })),
+        total: conversations.length,
+        page: req.query.page ? parseInt(req.query.page as string) : 1,
+        pageSize: 50,
+      });
+    } catch (error) {
+      logger.error('Failed to get chat sessions', { error, tenantId });
+      res.status(500).json({ error: 'Failed to get sessions' });
+    }
+  });
+
+  // GET /chat/sessions/:id/messages → /tenant/agent/conversations/:id/messages
+  router.get('/chat/sessions/:id/messages', tenantMiddleware.authenticate, async (req, res) => {
+    const tenantId = (req as AuthenticatedRequest).tenant?.tenantId;
+    if (!tenantId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const messages = await agentService.getMessages(tenantId, req.params.id, 50);
+      res.json({
+        data: messages.map((m: { id: string; role: string; content: string; model_used?: string; latency_ms?: number; created_at: Date }) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          aiProvider: m.model_used ? 'ai' : null,
+          aiModel: m.model_used,
+          responseTimeMs: m.latency_ms,
+          createdAt: m.created_at,
+        })),
+      });
+    } catch (error) {
+      logger.error('Failed to get chat messages', { error, tenantId });
+      res.status(500).json({ error: 'Failed to get messages' });
+    }
+  });
+
+  // POST /chat → /tenant/agent/chat
+  router.post('/chat', tenantMiddleware.authenticate, async (req, res) => {
+    const tenantId = (req as AuthenticatedRequest).tenant?.tenantId;
+    if (!tenantId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const chatRequest = {
+        message: req.body.message,
+        channel: 'webchat' as const,
+        external_chat_id: req.body.sessionId || `web-${Date.now()}`,
+        conversation_id: req.body.sessionId,
+      };
+
+      if (!chatRequest.message?.trim()) {
+        return res.status(400).json({ error: 'Message is required' });
+      }
+
+      const response = await chatService.processMessage(tenantId, chatRequest);
+      res.json({
+        data: {
+          response: response.message,
+          sessionId: response.conversation_id,
+        },
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Chat error', { error, tenantId });
+      
+      if (message.includes('not configured')) {
+        return res.status(404).json({ error: 'Agent not configured. Please set up your AI agent first.' });
+      }
+      if (message.includes('not active')) {
+        return res.status(503).json({ error: 'Agent is not active' });
+      }
+      
+      res.status(500).json({ error: 'Failed to process message' });
+    }
+  });
 
   return router;
 }
