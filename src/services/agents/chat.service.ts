@@ -16,8 +16,8 @@ import {
   AgentConversation,
 } from './types';
 
-// Import AI orchestrator (adjust path as needed)
-// import { AIOrchestrator } from '../ai/orchestrator';
+// Import AI orchestrator
+import { getAIOrchestrator, AITaskType } from '../ai/orchestrator';
 
 interface AIResponse {
   content: string;
@@ -308,7 +308,7 @@ export class ChatService {
   }
 
   /**
-   * Generate AI response
+   * Generate AI response using the orchestrator
    */
   private async generateResponse(
     agent: TenantAgent,
@@ -317,72 +317,81 @@ export class ChatService {
   ): Promise<AIResponse> {
     const startTime = Date.now();
 
-    // TODO: Integrate with actual AI orchestrator
-    // For now, return a placeholder response
-    // In production, this would call:
-    // const orchestrator = new AIOrchestrator();
-    // return orchestrator.generateResponse({
-    //   systemPrompt: context,
-    //   userMessage,
-    //   model: agent.model_preference,
-    //   temperature: agent.temperature,
-    //   maxTokens: agent.max_tokens,
-    // });
+    try {
+      const orchestrator = getAIOrchestrator();
+      
+      // Map agent model preference to orchestrator options
+      const preferredProvider = agent.model_preference === 'local' 
+        ? 'local' as const
+        : agent.model_preference === 'anthropic' 
+          ? 'anthropic' as const
+          : agent.model_preference === 'openai'
+            ? 'openai' as const
+            : undefined;
 
-    // Placeholder implementation
-    const response = await this.mockAIResponse(context, userMessage, agent);
-    
-    return {
-      content: response.content,
-      tokensUsed: response.tokensUsed,
-      model: agent.model_preference === 'local' ? 'local-llm' : agent.model_preference,
-      latencyMs: Date.now() - startTime,
-    };
+      const response = await orchestrator.process({
+        tenantId: agent.tenant_id,
+        taskType: 'chat' as AITaskType,
+        messages: [
+          { role: 'system', content: context },
+          { role: 'user', content: userMessage },
+        ],
+        options: {
+          preferredProvider,
+          maxTokens: agent.max_tokens,
+          temperature: agent.temperature,
+        },
+      });
+
+      if (!response.success || !response.content) {
+        logger.warn('AI orchestrator failed, using fallback response', { 
+          error: response.error,
+          tenantId: agent.tenant_id,
+        });
+        // Fallback to simple response if AI fails
+        return this.fallbackResponse(userMessage, agent, startTime);
+      }
+
+      return {
+        content: response.content,
+        tokensUsed: response.usage?.totalTokens || 0,
+        model: response.model,
+        latencyMs: response.latencyMs,
+      };
+    } catch (error) {
+      logger.error('AI orchestrator error', { error, tenantId: agent.tenant_id });
+      return this.fallbackResponse(userMessage, agent, startTime);
+    }
   }
 
   /**
-   * Mock AI response (replace with actual orchestrator integration)
+   * Fallback response when AI is unavailable
    */
-  private async mockAIResponse(
-    context: string,
+  private fallbackResponse(
     userMessage: string,
-    agent: TenantAgent
-  ): Promise<{ content: string; tokensUsed: number }> {
-    // Simple keyword-based responses for testing
+    agent: TenantAgent,
+    startTime: number
+  ): AIResponse {
     const lowerMessage = userMessage.toLowerCase();
+    let content: string;
 
     if (lowerMessage.includes('menu') || lowerMessage.includes('food')) {
-      return {
-        content: "I'd be happy to help you with our menu! We have a variety of delicious options. Is there anything specific you're looking for, like starters, mains, or desserts?",
-        tokensUsed: 50,
-      };
+      content = "I'd be happy to help you with our menu! We have a variety of delicious options. Is there anything specific you're looking for, like starters, mains, or desserts?";
+    } else if (lowerMessage.includes('hours') || lowerMessage.includes('open')) {
+      content = "We're open Monday to Saturday from 12pm to 10pm, and Sunday from 12pm to 8pm. Is there anything else I can help you with?";
+    } else if (lowerMessage.includes('book') || lowerMessage.includes('reservation')) {
+      content = agent.capabilities.can_handle_reservations
+        ? "I can help you make a reservation! How many people will be dining, and what date and time would you prefer?"
+        : "I'd love to help with reservations, but I'll need to connect you with our staff for that. Would you like me to pass your request along?";
+    } else {
+      content = "Thank you for your message! How can I assist you today? I can help with menu information, opening hours, and general questions about our restaurant.";
     }
 
-    if (lowerMessage.includes('hours') || lowerMessage.includes('open')) {
-      return {
-        content: "We're open Monday to Saturday from 12pm to 10pm, and Sunday from 12pm to 8pm. Is there anything else I can help you with?",
-        tokensUsed: 40,
-      };
-    }
-
-    if (lowerMessage.includes('book') || lowerMessage.includes('reservation')) {
-      if (agent.capabilities.can_handle_reservations) {
-        return {
-          content: "I can help you make a reservation! How many people will be dining, and what date and time would you prefer?",
-          tokensUsed: 35,
-        };
-      } else {
-        return {
-          content: "I'd love to help with reservations, but I'll need to connect you with our staff for that. Would you like me to pass your request along?",
-          tokensUsed: 40,
-        };
-      }
-    }
-
-    // Default response
     return {
-      content: "Thank you for your message! How can I assist you today? I can help with menu information, opening hours, and general questions about our restaurant.",
-      tokensUsed: 45,
+      content,
+      tokensUsed: 0,
+      model: 'fallback',
+      latencyMs: Date.now() - startTime,
     };
   }
 
