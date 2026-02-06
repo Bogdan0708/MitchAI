@@ -83,21 +83,23 @@ export default function AgentPage() {
     try {
       setIsLoading(true)
       setError(null)
-      const response = await api.getAgent()
-      if (response.data?.agent) {
-        setAgent(response.data.agent)
+      const response = await api.getAgent() as unknown as { agent?: TenantAgent; data?: { agent?: TenantAgent } }
+      // Handle both direct response { agent } and wrapped { data: { agent } }
+      const agentData = response.agent || response.data?.agent
+      if (agentData) {
+        setAgent(agentData)
         setFormData({
-          name: response.data.agent.name,
-          system_prompt: response.data.agent.system_prompt || defaultSystemPrompt,
-          model_preference: response.data.agent.model_preference,
-          temperature: response.data.agent.temperature,
-          max_tokens: response.data.agent.max_tokens,
-          menu_context_enabled: response.data.agent.menu_context_enabled,
-          capabilities: response.data.agent.capabilities,
-          custom_knowledge: response.data.agent.custom_knowledge || { faqs: [], policies: {}, custom_instructions: '' },
+          name: agentData.name,
+          system_prompt: agentData.system_prompt || defaultSystemPrompt,
+          model_preference: agentData.model_preference,
+          temperature: agentData.temperature,
+          max_tokens: agentData.max_tokens,
+          menu_context_enabled: agentData.menu_context_enabled,
+          capabilities: agentData.capabilities,
+          custom_knowledge: agentData.custom_knowledge || { faqs: [], policies: {}, custom_instructions: '' },
         })
-        if (response.data.agent.telegram_bot_username) {
-          setTelegramUsername(response.data.agent.telegram_bot_username)
+        if (agentData.telegram_bot_username) {
+          setTelegramUsername(agentData.telegram_bot_username)
         }
       }
     } catch (err: unknown) {
@@ -116,9 +118,10 @@ export default function AgentPage() {
   const fetchStats = useCallback(async () => {
     if (!agent) return
     try {
-      const response = await api.getAgentStats()
-      if (response.data?.stats) {
-        setStats(response.data.stats)
+      const response = await api.getAgentStats() as unknown as { stats?: AgentStats; data?: { stats?: AgentStats } }
+      const statsData = response.stats || response.data?.stats
+      if (statsData) {
+        setStats(statsData)
       }
     } catch {
       // Stats not critical
@@ -139,9 +142,10 @@ export default function AgentPage() {
     setIsSaving(true)
     setError(null)
     try {
-      const response = await api.createAgent(formData)
-      if (response.data?.agent) {
-        setAgent(response.data.agent)
+      const response = await api.createAgent(formData) as unknown as { agent?: TenantAgent; data?: { agent?: TenantAgent } }
+      const agentData = response.agent || response.data?.agent
+      if (agentData) {
+        setAgent(agentData)
         setSuccess('Agent created successfully!')
         setTimeout(() => setSuccess(null), 3000)
       }
@@ -162,9 +166,10 @@ export default function AgentPage() {
     setIsSaving(true)
     setError(null)
     try {
-      const response = await api.updateAgent(formData)
-      if (response.data?.agent) {
-        setAgent(response.data.agent)
+      const response = await api.updateAgent(formData) as unknown as { agent?: TenantAgent; data?: { agent?: TenantAgent } }
+      const agentData = response.agent || response.data?.agent
+      if (agentData) {
+        setAgent(agentData)
         setSuccess('Agent updated successfully!')
         setTimeout(() => setSuccess(null), 3000)
       }
@@ -181,11 +186,12 @@ export default function AgentPage() {
     setError(null)
     try {
       const response = agent.status === 'active' 
-        ? await api.stopAgent()
-        : await api.startAgent()
-      if (response.data?.agent) {
-        setAgent(response.data.agent)
-        setSuccess(response.data.message || 'Agent status updated!')
+        ? await api.stopAgent() as unknown as { agent?: TenantAgent; message?: string; data?: { agent?: TenantAgent; message?: string } }
+        : await api.startAgent() as unknown as { agent?: TenantAgent; message?: string; data?: { agent?: TenantAgent; message?: string } }
+      const agentData = response.agent || response.data?.agent
+      if (agentData) {
+        setAgent(agentData)
+        setSuccess(response.message || response.data?.message || 'Agent status updated!')
         setTimeout(() => setSuccess(null), 3000)
       }
     } catch (err: unknown) {
