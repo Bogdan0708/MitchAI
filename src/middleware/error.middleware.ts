@@ -67,6 +67,14 @@ const sendErrorProd = (err: any, req: Request, res: Response) => {
     });
   } else {
     // Programming or other unknown error: don't leak details
+    // Log the actual error for debugging
+    console.error('[UNHANDLED ERROR]', {
+      path: req.path,
+      method: req.method,
+      error: err.message,
+      stack: err.stack,
+      name: err.name,
+    });
     res.status(500).json({
       status: 'error',
       requestId: req.requestId,
