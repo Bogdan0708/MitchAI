@@ -267,13 +267,9 @@ export default function MenuPage() {
         itemsToEnhance.map(i => ({
           id: i.id,
           name: i.name,
-          category: i.category,
-          ingredients: i.ingredients,
+          category: i.categoryName || i.categoryId,
           allergens: i.allergens,
           price: i.price,
-          is_vegetarian: i.isVegetarian,
-          is_vegan: i.isVegan,
-          is_gluten_free: i.isGlutenFree,
         })),
         selectedStyle
       )
