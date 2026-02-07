@@ -56,7 +56,7 @@ export class ChatService {
       }
 
       // Get or create conversation
-      let conversation = await this.getOrCreateConversation(
+      const conversation = await this.getOrCreateConversation(
         client,
         agent.id,
         request
