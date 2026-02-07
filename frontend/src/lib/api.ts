@@ -179,7 +179,10 @@ class ApiClient {
   async enhanceMenuItem(id: string, options?: { style?: string; detectAllergens?: boolean }) {
     return this.request<ApiResponse<MenuItem>>(`/menu/${id}/ai-enhance`, {
       method: 'POST',
-      body: JSON.stringify(options || {}),
+      body: JSON.stringify({
+        generateDescription: true,
+        ...options,
+      }),
     })
   }
 
