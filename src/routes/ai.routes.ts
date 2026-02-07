@@ -222,6 +222,7 @@ export function createAIRouter(pool: Pool): Router {
           });
 
           return {
+            id: item.id,
             item_name: item.name,
             success: response.success,
             description: response.content,

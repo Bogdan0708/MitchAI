@@ -470,13 +470,25 @@ class ApiClient {
     })
   }
 
-  async bulkEnhanceMenu(itemIds: string[], style: string) {
+  async bulkEnhanceMenu(items: Array<{
+    id: string
+    name: string
+    category?: string
+    ingredients?: string[]
+    allergens?: string[]
+    price?: number
+    is_vegetarian?: boolean
+    is_vegan?: boolean
+    is_gluten_free?: boolean
+  }>, style: string) {
+    // Uses existing /ai/menu-description/batch endpoint
     return this.request<ApiResponse<{
-      enhanced: { id: string; description: string }[]
-      failed: string[]
-    }>>('/ai/menu/bulk-enhance', {
+      results: Array<{ id: string; description: string; success: boolean; error?: string }>
+      successful: number
+      failed: number
+    }>>('/ai/menu-description/batch', {
       method: 'POST',
-      body: JSON.stringify({ itemIds, style }),
+      body: JSON.stringify({ items, style }),
     })
   }
 
