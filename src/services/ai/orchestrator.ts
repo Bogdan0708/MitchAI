@@ -519,22 +519,29 @@ export class AIOrchestrator {
     }
 
     // Local LLM Studio (GPU-accelerated, primary local provider)
+    const enableLocalAI = process.env.ENABLE_LOCAL_AI === 'true';
     this.providerConfigs.set('local', {
       provider: 'local',
-      enabled: true,
+      enabled: enableLocalAI,
       baseUrl: this.localBaseUrl,
       models: DEFAULT_MODELS.filter(m => m.provider === 'local'),
     });
-    console.log(`[AI Orchestrator] LM Studio configured: ${this.localBaseUrl}`);
+    if (enableLocalAI) {
+      console.log(`[AI Orchestrator] LM Studio configured: ${this.localBaseUrl}`);
+    } else {
+      console.log('[AI Orchestrator] LM Studio disabled (ENABLE_LOCAL_AI=false)');
+    }
 
     // Ollama (CPU fallback when LM Studio unavailable)
     this.providerConfigs.set('ollama', {
       provider: 'ollama',
-      enabled: true,
+      enabled: enableLocalAI,
       baseUrl: this.ollamaBaseUrl,
       models: DEFAULT_MODELS.filter(m => m.provider === 'ollama'),
     });
-    console.log(`[AI Orchestrator] Ollama configured: ${this.ollamaBaseUrl}`);
+    if (enableLocalAI) {
+      console.log(`[AI Orchestrator] Ollama configured: ${this.ollamaBaseUrl}`);
+    }
 
     // Remote AI Service (GCP) - cloud fallback when local unavailable
     if (process.env.AI_SERVICE_URL) {
