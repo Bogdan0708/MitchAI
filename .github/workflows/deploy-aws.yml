@@ -22,6 +22,8 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'package*.json'
+      - 'infrastructure/aws/**'
+      - '.github/workflows/deploy-aws.yml'
   workflow_dispatch:
     inputs:
       force_deploy:
