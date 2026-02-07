@@ -264,12 +264,26 @@ export default function MenuPage() {
 
     try {
       const response = await api.bulkEnhanceMenu(
-        itemsToEnhance.map(i => i.id),
+        itemsToEnhance.map(i => ({
+          id: i.id,
+          name: i.name,
+          category: i.category,
+          ingredients: i.ingredients,
+          allergens: i.allergens,
+          price: i.price,
+          is_vegetarian: i.isVegetarian,
+          is_vegan: i.isVegan,
+          is_gluten_free: i.isGlutenFree,
+        })),
         selectedStyle
       )
 
-      if (response.data?.enhanced) {
-        const enhancedMap = new Map(response.data.enhanced.map((e: any) => [e.id, e.description]))
+      if (response.data?.results) {
+        const enhancedMap = new Map(
+          response.data.results
+            .filter((r: any) => r.success)
+            .map((r: any) => [r.id, r.description])
+        )
         setMenuItems(items =>
           items.map(item =>
             enhancedMap.has(item.id)
@@ -920,15 +934,16 @@ export default function MenuPage() {
                 {/* Current Allergens */}
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(allergenConfig).map(([key, config]) => {
-                    const isSelected = editingItem.allergens.includes(key)
+                    const allergens = editingItem.allergens || []
+                    const isSelected = allergens.includes(key)
                     const isDetected = editingItem.detectedAllergens?.includes(key)
                     return (
                       <button
                         key={key}
                         onClick={() => {
                           const newAllergens = isSelected
-                            ? editingItem.allergens.filter(a => a !== key)
-                            : [...editingItem.allergens, key]
+                            ? allergens.filter(a => a !== key)
+                            : [...allergens, key]
                           setEditingItem({ ...editingItem, allergens: newAllergens })
                         }}
                         className={cn(
