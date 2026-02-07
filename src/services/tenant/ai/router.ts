@@ -131,7 +131,8 @@ export class AIRouter {
       );
     }
 
-    if (providerConfigs.lm_studio?.enabled !== false) {
+    // Only enable LM Studio if explicitly configured (for local development)
+    if (process.env.LM_STUDIO_URL && providerConfigs.lm_studio?.enabled !== false) {
       this.providers.set(
         'lm_studio',
         new LMStudioProvider({
@@ -147,7 +148,8 @@ export class AIRouter {
       );
     }
 
-    if (providerConfigs.ollama?.enabled !== false) {
+    // Only enable Ollama if explicitly configured (for local development)
+    if (process.env.OLLAMA_URL && providerConfigs.ollama?.enabled !== false) {
       this.providers.set(
         'ollama',
         new OllamaProvider({
