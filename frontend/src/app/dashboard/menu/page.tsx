@@ -106,7 +106,7 @@ export default function MenuPage() {
   // Filter items
   const filteredItems = menuItems.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchQuery.toLowerCase())
+                         (item.description || '').toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = !selectedCategory || item.categoryId === selectedCategory
     return matchesSearch && matchesCategory
   })
