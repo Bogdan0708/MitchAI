@@ -60,6 +60,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=production-deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=base --chown=nodejs:nodejs /app/package*.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/healthcheck.js ./
+COPY --from=builder --chown=nodejs:nodejs /app/docs ./docs
 
 # Create directories for exports and logs
 RUN mkdir -p /app/exports /app/logs && \
