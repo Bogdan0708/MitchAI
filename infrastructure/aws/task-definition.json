@@ -26,15 +26,19 @@
       "environment": [
         {"name": "NODE_ENV", "value": "production"},
         {"name": "PORT", "value": "3000"},
-        {"name": "DATABASE_URL", "value": "postgresql://postgres:yu4D5vYou6GwzNXOb9PwkOSqoCydedHZ@mitch-dev-postgres.c7kggiigs731.eu-west-2.rds.amazonaws.com:5432/hospitality_db?sslmode=no-verify"},
-        {"name": "REDIS_URL", "value": "redis://mitch-redis.0qttdd.0001.euw2.cache.amazonaws.com:6379"},
-        {"name": "JWT_SECRET", "value": "j7X92kLpNqW4vR8tYhUbMcFdEaZsG3xC"},
-        {"name": "STRIPE_SECRET_KEY", "value": "sk_test_placeholder"},
         {"name": "CORS_ORIGINS", "value": "https://mitchfromtransylvania.com,https://www.mitchfromtransylvania.com,https://master.d19ti5682xc8uc.amplifyapp.com"},
         {"name": "AI_SERVICE_URL", "value": "https://mitch-ai-382299704849.europe-west2.run.app"},
         {"name": "LOCAL_LLM_URL", "value": "https://lm.mitchfromtransylvania.com/v1"},
         {"name": "ENABLE_LOCAL_AI", "value": "true"},
         {"name": "LOCAL_AI_FIRST", "value": "true"}
+      ],
+      "secrets": [
+        {"name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/database-url-STd3BM"},
+        {"name": "REDIS_URL", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/redis-url-Mp3xb2"},
+        {"name": "JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/jwt-secret-MJy3Ob"},
+        {"name": "STRIPE_SECRET_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/stripe-secret-key-RGyrPD"},
+        {"name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/openai-api-key-Wy16ba"},
+        {"name": "ANTHROPIC_API_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/anthropic-api-key-YA2rIC"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
