@@ -180,7 +180,7 @@ ${item.category ? `Category: ${item.category}` : ''}
 ${item.ingredients?.length ? `Key Ingredients: ${item.ingredients.join(', ')}` : ''}
 ${item.allergens?.length ? `Contains: ${item.allergens.join(', ')}` : ''}
 ${dietaryInfo ? `Dietary: ${dietaryInfo}` : ''}
-${item.price ? `Price: £${item.price.toFixed(2)}` : ''}`;
+${item.price ? `Price: £${Number(item.price).toFixed(2)}` : ''}`;
 
     return this.orchestrator.process({
       tenantId: request.tenantId,
