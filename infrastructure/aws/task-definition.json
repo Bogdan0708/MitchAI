@@ -31,7 +31,7 @@
         {"name": "LOCAL_LLM_URL", "value": "https://lm.mitchfromtransylvania.com/v1"},
         {"name": "LM_STUDIO_URL", "value": "https://lm.mitchfromtransylvania.com/v1"},
         {"name": "ENABLE_LOCAL_AI", "value": "true"},
-        {"name": "LOCAL_AI_FIRST", "value": "true"}
+        {"name": "LOCAL_AI_FIRST", "value": "false"}
       ],
       "secrets": [
         {"name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/database-url-STd3BM"},
