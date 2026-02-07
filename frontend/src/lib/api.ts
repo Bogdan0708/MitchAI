@@ -474,12 +474,8 @@ class ApiClient {
     id: string
     name: string
     category?: string
-    ingredients?: string[]
     allergens?: string[]
     price?: number
-    is_vegetarian?: boolean
-    is_vegan?: boolean
-    is_gluten_free?: boolean
   }>, style: string) {
     // Uses existing /ai/menu-description/batch endpoint
     return this.request<ApiResponse<{
