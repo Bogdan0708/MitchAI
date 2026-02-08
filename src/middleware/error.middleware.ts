@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import * as Sentry from '@sentry/node';
 import { logger } from '../services/logger.service';
 
 // Custom error class for application errors
@@ -29,6 +30,17 @@ export const errorHandler = (
 
   // Log error with request context
   logger.logRequestError(err, req, err.statusCode);
+
+  // Capture to Sentry (skip 4xx client errors)
+  if (err.statusCode >= 500 && process.env.SENTRY_DSN) {
+    Sentry.captureException(err, {
+      extra: {
+        url: req.originalUrl,
+        method: req.method,
+        tenantId: (req as any).tenant?.tenantId,
+      },
+    });
+  }
 
   // Development vs Production error response
   if (process.env.NODE_ENV === 'development') {

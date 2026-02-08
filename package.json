@@ -24,6 +24,7 @@
     "@aws-sdk/s3-request-presigner": "^3.946.0",
     "@json2csv/plainjs": "^7.0.6",
     "@sendgrid/mail": "^8.1.0",
+    "@sentry/node": "^10.38.0",
     "@types/ioredis": "^4.28.10",
     "@types/morgan": "^1.9.10",
     "@types/qrcode": "^1.5.6",
