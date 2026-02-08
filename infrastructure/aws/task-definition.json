@@ -1,7 +1,9 @@
 {
   "family": "mitch-dev-api",
   "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
   "cpu": "256",
   "memory": "512",
   "executionRoleArn": "arn:aws:iam::337270123670:role/ecsTaskExecutionRole",
@@ -17,29 +19,82 @@
         }
       ],
       "healthCheck": {
-        "command": ["CMD-SHELL", "curl -f http://localhost:3000/ping || exit 1"],
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:3000/ping || exit 1"
+        ],
         "interval": 30,
         "timeout": 5,
         "retries": 3,
         "startPeriod": 60
       },
       "environment": [
-        {"name": "NODE_ENV", "value": "production"},
-        {"name": "PORT", "value": "3000"},
-        {"name": "CORS_ORIGINS", "value": "https://mitchfromtransylvania.com,https://www.mitchfromtransylvania.com,https://master.d19ti5682xc8uc.amplifyapp.com"},
-        {"name": "AI_SERVICE_URL", "value": "https://mitch-ai-382299704849.europe-west2.run.app"},
-        {"name": "LOCAL_LLM_URL", "value": "https://lm.mitchfromtransylvania.com/v1"},
-        {"name": "LM_STUDIO_URL", "value": "https://lm.mitchfromtransylvania.com/v1"},
-        {"name": "ENABLE_LOCAL_AI", "value": "false"},
-        {"name": "LOCAL_AI_FIRST", "value": "false"}
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "3000"
+        },
+        {
+          "name": "CORS_ORIGINS",
+          "value": "https://mitchfromtransylvania.com,https://www.mitchfromtransylvania.com,https://master.d19ti5682xc8uc.amplifyapp.com"
+        },
+        {
+          "name": "AI_SERVICE_URL",
+          "value": "https://mitch-ai-382299704849.europe-west2.run.app"
+        },
+        {
+          "name": "LOCAL_LLM_URL",
+          "value": "https://lm.mitchfromtransylvania.com/v1"
+        },
+        {
+          "name": "LM_STUDIO_URL",
+          "value": "https://lm.mitchfromtransylvania.com/v1"
+        },
+        {
+          "name": "ENABLE_LOCAL_AI",
+          "value": "false"
+        },
+        {
+          "name": "LOCAL_AI_FIRST",
+          "value": "false"
+        }
       ],
       "secrets": [
-        {"name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/database-url-STd3BM"},
-        {"name": "REDIS_URL", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/redis-url-Mp3xb2"},
-        {"name": "JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/jwt-secret-MJy3Ob"},
-        {"name": "STRIPE_SECRET_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/stripe-secret-key-RGyrPD"},
-        {"name": "OPENAI_API_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/openai-api-key-Wy16ba"},
-        {"name": "ANTHROPIC_API_KEY", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/anthropic-api-key-YA2rIC"}
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/database-url-STd3BM"
+        },
+        {
+          "name": "REDIS_URL",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/redis-url-Mp3xb2"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/jwt-secret-MJy3Ob"
+        },
+        {
+          "name": "STRIPE_SECRET_KEY",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/stripe-secret-key-RGyrPD"
+        },
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/openai-api-key-Wy16ba"
+        },
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/anthropic-api-key-YA2rIC"
+        },
+        {
+          "name": "SQUARE_ACCESS_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/square-access-token-Lwb4KS"
+        },
+        {
+          "name": "SQUARE_APP_ID",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/square-app-id-RQgGQf"
+        }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
