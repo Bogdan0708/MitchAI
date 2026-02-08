@@ -19,12 +19,15 @@ export class EmailService {
   private fromEmail: string;
   private fromName: string;
 
+  private configSet: string;
+
   constructor() {
     this.ses = new SESClient({ 
       region: process.env.AWS_REGION || 'eu-west-2' 
     });
     this.fromEmail = process.env.SES_FROM_EMAIL || 'noreply@mitchfromtransylvania.com';
     this.fromName = process.env.SES_FROM_NAME || 'Mitch Platform';
+    this.configSet = process.env.SES_CONFIG_SET || 'Mitch_email_AWS_SES';
   }
 
   async send(options: EmailOptions): Promise<boolean> {
@@ -54,6 +57,7 @@ export class EmailService {
             }),
           },
         },
+        ConfigurationSetName: this.configSet,
         ...(options.replyTo && {
           ReplyToAddresses: [options.replyTo],
         }),
