@@ -290,7 +290,7 @@ router.post('/square/orders/import', async (req: Request, res: Response) => {
         for (const item of order.lineItems) {
           await pool.query(`
             INSERT INTO order_items (
-              tenant_id, order_id, item_name, quantity, unit_price, total_price, notes
+              tenant_id, order_id, name, quantity, unit_price, total_price, notes
             ) VALUES ($1, $2, $3, $4, $5, $6, $7)
           `, [
             tenantId,
