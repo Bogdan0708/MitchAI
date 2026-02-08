@@ -243,13 +243,20 @@ router.post('/square/orders/import', async (req: Request, res: Response) => {
       try {
         // Check if order already exists (by Square ID stored in notes)
         const existing = await pool.query(
-          `SELECT id FROM orders WHERE tenant_id = $1 AND notes LIKE $2`,
+          `SELECT o.id, (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) as item_count
+           FROM orders o WHERE o.tenant_id = $1 AND o.notes LIKE $2`,
           [tenantId, `%square_id:${order.id}%`]
         );
 
         if (existing.rows.length > 0) {
-          skipped++;
-          continue;
+          // If order exists but has no items (failed previous import), delete and re-import
+          if (existing.rows[0].item_count === '0' || existing.rows[0].item_count === 0) {
+            await pool.query(`DELETE FROM orders WHERE id = $1`, [existing.rows[0].id]);
+            console.log(`[Square] Deleted malformed order ${order.id} for re-import`);
+          } else {
+            skipped++;
+            continue;
+          }
         }
 
         // Generate order number
@@ -260,50 +267,62 @@ router.post('/square/orders/import', async (req: Request, res: Response) => {
         const taxAmount = (order.taxMoney || 0) / 100;
         const totalAmount = order.totalMoney / 100;
 
-        // Insert order
-        const orderResult = await pool.query(`
-          INSERT INTO orders (
-            tenant_id, location_id, order_number, order_type, status,
-            subtotal, tax_amount, total_amount, payment_status, payment_method,
-            notes, source, created_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-          RETURNING id
-        `, [
-          tenantId,
-          locationId,
-          orderNumber,
-          'takeaway', // Default for Square orders
-          'completed',
-          subtotal,
-          taxAmount,
-          totalAmount,
-          'paid',
-          'square',
-          `Imported from Square | square_id:${order.id}`,
-          'square',
-          order.createdAt
-        ]);
+        // Use a client for transaction
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
 
-        const orderId = orderResult.rows[0].id;
-
-        // Insert order items
-        for (const item of order.lineItems) {
-          await pool.query(`
-            INSERT INTO order_items (
-              tenant_id, order_id, name, quantity, unit_price, total_price, notes
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          // Insert order
+          const orderResult = await client.query(`
+            INSERT INTO orders (
+              tenant_id, location_id, order_number, order_type, status,
+              subtotal, tax_amount, total_amount, payment_status, payment_method,
+              notes, source, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING id
           `, [
             tenantId,
-            orderId,
-            item.name,
-            item.quantity,
-            (item.basePriceMoney || item.totalMoney) / 100,
-            item.totalMoney / 100,
-            item.variationName || null
+            locationId,
+            orderNumber,
+            'takeaway', // Default for Square orders
+            'completed',
+            subtotal,
+            taxAmount,
+            totalAmount,
+            'paid',
+            'square',
+            `Imported from Square | square_id:${order.id}`,
+            'square',
+            order.createdAt
           ]);
-        }
 
-        imported++;
+          const orderId = orderResult.rows[0].id;
+
+          // Insert order items
+          for (const item of order.lineItems) {
+            await client.query(`
+              INSERT INTO order_items (
+                tenant_id, order_id, name, quantity, unit_price, total_price, notes
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [
+              tenantId,
+              orderId,
+              item.name,
+              item.quantity,
+              (item.basePriceMoney || item.totalMoney) / 100,
+              item.totalMoney / 100,
+              item.variationName || null
+            ]);
+          }
+
+          await client.query('COMMIT');
+          imported++;
+        } catch (txErr) {
+          await client.query('ROLLBACK');
+          throw txErr;
+        } finally {
+          client.release();
+        }
       } catch (err: any) {
         errors.push(`Order ${order.id}: ${err.message}`);
       }
