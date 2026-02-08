@@ -65,6 +65,7 @@ import { createContentRouter } from './content.routes';
 import { createIntelligenceRouter } from './intelligence.routes';
 import { createAIRouter } from './ai.routes';
 import { createIntegrationsRouter } from './integrations.routes';
+import { createAdminRouter } from './admin.routes';
 
 // Import multi-agent services
 import { AgentService } from '../services/agents/agent.service';
@@ -342,6 +343,11 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       });
     }
   });
+
+  // ============================================================================
+  // ADMIN ROUTES (Protected by admin secret, no tenant context)
+  // ============================================================================
+  router.use('/admin', createAdminRouter(pool));
 
   // ============================================================================
   // PROTECTED ROUTES (Require authentication and tenant context)
