@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Sidebar } from '@/components/dashboard/sidebar'
+import { CommandMenu } from '@/components/command-menu'
+import { Toaster } from '@/components/toaster'
 import { cn } from '@/lib/utils'
 
 export default function DashboardLayout({
@@ -16,6 +18,7 @@ export default function DashboardLayout({
   const { isAuthenticated, isLoading, tenant } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [commandOpen, setCommandOpen] = useState(false)
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -70,7 +73,14 @@ export default function DashboardLayout({
           </div>
           <span className="font-semibold">Mitch</span>
         </div>
-        <div className="w-10" /> {/* Spacer for balance */}
+        <button
+          onClick={() => setCommandOpen(true)}
+          className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
       </div>
 
       {/* Mobile Overlay */}
@@ -149,6 +159,12 @@ export default function DashboardLayout({
 
       {/* Add padding for bottom nav on mobile */}
       <div className="lg:hidden h-16" />
+
+      {/* Command Menu (Cmd+K) */}
+      <CommandMenu open={commandOpen} onOpenChange={setCommandOpen} />
+
+      {/* Toast Notifications */}
+      <Toaster />
     </div>
   )
 }
