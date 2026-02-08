@@ -25,7 +25,7 @@ interface AuthenticatedRequest extends Request {
   };
 }
 import { TenantMiddleware } from '../middleware/tenant.middleware';
-import { RateLimitMiddleware } from '../middleware/rateLimit.middleware';
+import { RateLimitMiddleware, AuthRateLimiter } from '../middleware/rateLimit.middleware';
 import { TenantController } from '../controllers/tenant.controller';
 import { DataExportController } from '../controllers/data-export.controller';
 import { LocationController } from '../controllers/location.controller';
@@ -101,6 +101,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Initialize middleware
   const tenantMiddleware = new TenantMiddleware(pool, redis, jwtSecret);
   const rateLimitMiddleware = new RateLimitMiddleware(redis, pool);
+  const authRateLimiter = new AuthRateLimiter(redis);
   const tenantController = new TenantController(pool);
   const dataExportController = new DataExportController(pool);
   const locationController = new LocationController(pool);
@@ -139,7 +140,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   });
 
   // Onboarding endpoint (tenant signup)
-  router.post('/onboard', validate(registerSchema), async (req, res) => {
+  router.post('/onboard', authRateLimiter.limit, validate(registerSchema), async (req, res) => {
     try {
       const onboardingService = new TenantOnboardingService(
         pool,
@@ -266,7 +267,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   });
 
   // Authentication endpoint
-  router.post('/auth/login', validate(loginSchema), async (req, res) => {
+  router.post('/auth/login', authRateLimiter.limit, validate(loginSchema), async (req, res) => {
     try {
       const { email, password } = req.body;
       const { accessToken, user, tenant } = await authService.login({ email, password }, req.ip || ''); // Pass req.ip
