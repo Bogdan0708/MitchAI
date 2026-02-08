@@ -5,10 +5,11 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { pool } from '../lib/db-context';
+import { Pool } from 'pg';
 import { createSquareService, SquareConfig } from '../services/integrations/square.service';
 
-const router = Router();
+export function createIntegrationsRouter(pool: Pool): Router {
+  const router = Router();
 
 // ============================================================================
 // SQUARE INTEGRATION
@@ -188,4 +189,5 @@ router.get('/square/orders', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
+  return router;
+}
