@@ -94,6 +94,10 @@
         {
           "name": "SQUARE_APP_ID",
           "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/square-app-id-RQgGQf"
+        },
+        {
+          "name": "SENTRY_DSN",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/sentry-dsn-GtmeSq"
         }
       ],
       "logConfiguration": {
