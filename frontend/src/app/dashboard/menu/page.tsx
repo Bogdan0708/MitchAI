@@ -811,7 +811,7 @@ export default function MenuPage() {
                     <select
                       value={selectedStyle}
                       onChange={(e) => setSelectedStyle(e.target.value)}
-                      className="text-xs border rounded px-2 py-1 bg-background text-foreground dark:bg-gray-800 dark:border-gray-600"
+                      className="text-xs border border-input rounded px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                     >
                       {descriptionStyles.map(style => (
                         <option key={style.id} value={style.id}>
@@ -843,7 +843,7 @@ export default function MenuPage() {
                 <textarea
                   value={editingItem.description}
                   onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
-                  className="w-full min-h-[100px] p-3 border rounded-lg text-sm resize-none"
+                  className="w-full min-h-[100px] p-3 border border-input rounded-lg text-sm resize-none bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   placeholder="Enter item description..."
                 />
 
@@ -1022,7 +1022,7 @@ export default function MenuPage() {
                 <select
                   value={newItem.categoryId || ''}
                   onChange={(e) => setNewItem({ ...newItem, categoryId: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background text-foreground dark:bg-gray-800 dark:border-gray-600"
+                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">Select a category</option>
                   {categories.map((cat) => (
@@ -1057,7 +1057,7 @@ export default function MenuPage() {
                   placeholder="Describe your menu item..."
                   value={newItem.description || ''}
                   onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                  className="w-full min-h-[80px] p-3 border rounded-lg text-sm resize-none"
+                  className="w-full min-h-[80px] p-3 border border-input rounded-lg text-sm resize-none bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 

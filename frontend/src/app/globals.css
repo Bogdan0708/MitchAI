@@ -27,25 +27,26 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    /* Layered backgrounds for depth (not pure black) */
+    --background: 222.2 84% 4.9%;      /* Base - darkest */
+    --foreground: 210 40% 98%;          /* Primary text - off-white */
+    --card: 222.2 47% 8%;               /* Cards - slight lift */
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 222.2 47% 11%;           /* Popovers/modals - more lift */
     --popover-foreground: 210 40% 98%;
     --primary: 239 84% 67%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 50.6%;       /* Brighter for visibility */
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 239 84% 67%;
+    --border: 217.2 32.6% 25%;          /* Visible borders */
+    --input: 217.2 32.6% 15%;           /* Form input backgrounds */
+    --ring: 239 70% 70%;                /* Focus ring - clearly visible */
   }
 }
 
