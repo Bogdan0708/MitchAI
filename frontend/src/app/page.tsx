@@ -174,8 +174,8 @@ export default function HomePage() {
 
   if (!showLanding) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-50 to-white">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/5 to-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     )
   }
@@ -187,8 +187,8 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center">
-                <span className="text-white font-bold text-xl">M</span>
+              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-bold text-xl">M</span>
               </div>
               <span className="font-bold text-xl text-foreground">Mitch AI</span>
             </div>
@@ -203,7 +203,7 @@ export default function HomePage() {
               </Link>
               <Link
                 href="/register"
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
               >
                 Start Free Trial
               </Link>
@@ -215,7 +215,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-primary/5 via-background to-background">
         <div className="max-w-7xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-100 rounded-full text-indigo-700 font-medium text-sm mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 dark:bg-primary/20 rounded-full text-primary font-medium text-sm mb-8">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
@@ -231,7 +231,7 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
             <Link
               href="/register"
-              className="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-semibold text-lg shadow-lg shadow-indigo-200"
+              className="w-full sm:w-auto px-8 py-4 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors font-semibold text-lg shadow-lg shadow-primary/20"
             >
               Start 14-Day Free Trial
             </Link>
@@ -271,13 +271,13 @@ export default function HomePage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 bg-indigo-600">
+      <section className="py-16 bg-primary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {stats.map((stat, index) => (
               <div key={index} className="text-center">
-                <div className="text-4xl sm:text-5xl font-bold text-white mb-2">{stat.value}</div>
-                <div className="text-indigo-200">{stat.label}</div>
+                <div className="text-4xl sm:text-5xl font-bold text-primary-foreground mb-2">{stat.value}</div>
+                <div className="text-primary-foreground/70">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -336,11 +336,11 @@ export default function HomePage() {
               { step: '3', title: 'Go Live', description: 'Start automating responses and watch your ratings improve.' },
             ].map((item, index) => (
               <div key={index} className="relative text-center">
-                <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-2xl mx-auto mb-6">
+                <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground font-bold text-2xl mx-auto mb-6">
                   {item.step}
                 </div>
                 {index < 2 && (
-                  <div className="hidden md:block absolute top-8 left-[60%] w-[80%] h-0.5 bg-indigo-200"></div>
+                  <div className="hidden md:block absolute top-8 left-[60%] w-[80%] h-0.5 bg-primary/30"></div>
                 )}
                 <h3 className="text-xl font-bold text-foreground mb-3">{item.title}</h3>
                 <p className="text-muted-foreground">{item.description}</p>
@@ -403,7 +403,7 @@ export default function HomePage() {
                 }`}
               >
                 {plan.highlighted && (
-                  <div className="inline-block px-3 py-1 bg-indigo-500 rounded-full text-sm font-medium mb-4">
+                  <div className="inline-block px-3 py-1 bg-primary-foreground/20 rounded-full text-sm font-medium mb-4 text-primary-foreground">
                     Most Popular
                   </div>
                 )}
@@ -433,8 +433,8 @@ export default function HomePage() {
                   href="/register"
                   className={`block w-full py-3 rounded-xl font-semibold text-center transition-colors ${
                     plan.highlighted
-                      ? 'bg-white text-indigo-600 hover:bg-indigo-50'
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      ? 'bg-primary-foreground text-primary hover:bg-primary-foreground/90'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
                   }`}
                 >
                   {plan.cta}
@@ -446,17 +446,17 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-indigo-600">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-primary">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
+          <h2 className="text-3xl sm:text-4xl font-bold text-primary-foreground mb-6">
             Ready to Save 15+ Hours Every Week?
           </h2>
-          <p className="text-xl text-indigo-200 mb-8">
+          <p className="text-xl text-primary-foreground/70 mb-8">
             Join hundreds of restaurants already using Mitch AI to automate their operations.
           </p>
           <Link
             href="/register"
-            className="inline-block px-8 py-4 bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-colors font-semibold text-lg"
+            className="inline-block px-8 py-4 bg-primary-foreground text-primary rounded-xl hover:bg-primary-foreground/90 transition-colors font-semibold text-lg"
           >
             Start Your Free Trial
           </Link>
@@ -464,23 +464,23 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-4 sm:px-6 lg:px-8 bg-gray-900">
+      <footer className="py-12 px-4 sm:px-6 lg:px-8 bg-slate-900 dark:bg-slate-950">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">M</span>
+                <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
+                  <span className="text-primary-foreground font-bold text-xl">M</span>
                 </div>
                 <span className="font-bold text-xl text-white">Mitch AI</span>
               </div>
-              <p className="text-gray-400">
+              <p className="text-slate-400">
                 AI-powered restaurant management platform
               </p>
             </div>
             <div>
               <h4 className="font-semibold text-white mb-4">Product</h4>
-              <ul className="space-y-2 text-gray-400">
+              <ul className="space-y-2 text-slate-400">
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                 <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Integrations</a></li>
@@ -489,7 +489,7 @@ export default function HomePage() {
             </div>
             <div>
               <h4 className="font-semibold text-white mb-4">Company</h4>
-              <ul className="space-y-2 text-gray-400">
+              <ul className="space-y-2 text-slate-400">
                 <li><a href="#" className="hover:text-white transition-colors">About</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
@@ -498,15 +498,15 @@ export default function HomePage() {
             </div>
             <div>
               <h4 className="font-semibold text-white mb-4">Legal</h4>
-              <ul className="space-y-2 text-gray-400">
+              <ul className="space-y-2 text-slate-400">
                 <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Cookie Policy</a></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 Mitch AI. All rights reserved.</p>
+          <div className="border-t border-slate-800 mt-12 pt-8 text-center text-slate-400">
+            <p>&copy; 2026 Mitch AI. All rights reserved.</p>
           </div>
         </div>
       </footer>
