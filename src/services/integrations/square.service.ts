@@ -132,7 +132,7 @@ export class SquareService {
       throw new Error(`Square API error: ${response.status} - ${JSON.stringify(error)}`);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   // ============================================================================

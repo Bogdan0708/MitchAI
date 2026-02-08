@@ -64,7 +64,7 @@ import { createReviewsRouter } from './reviews.routes';
 import { createContentRouter } from './content.routes';
 import { createIntelligenceRouter } from './intelligence.routes';
 import { createAIRouter } from './ai.routes';
-import integrationsRouter from './integrations.routes';
+import { createIntegrationsRouter } from './integrations.routes';
 
 // Import multi-agent services
 import { AgentService } from '../services/agents/agent.service';
@@ -1726,7 +1726,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   router.use('/ai', createAIRouter(pool));
 
   // Third-party integrations (Square, Google Business, etc.)
-  router.use('/integrations', integrationsRouter);
+  router.use('/integrations', createIntegrationsRouter(pool));
 
   // Multi-agent management routes (Phase 1)
   const agentService = new AgentService(pool);
