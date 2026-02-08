@@ -489,3 +489,63 @@ export async function getTenantRateLimitStatus(
 }
 
 export default RateLimitMiddleware;
+
+// ============================================================================
+// AUTH RATE LIMITER - Stricter limits for login/signup
+// ============================================================================
+
+export class AuthRateLimiter {
+  private redis: Redis;
+  
+  constructor(redis: Redis) {
+    this.redis = redis;
+  }
+
+  /**
+   * Strict rate limiting for auth endpoints
+   * 5 attempts per minute, 20 per hour per IP
+   */
+  limit = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const ip = req.ip || 'unknown';
+      const now = Date.now();
+      
+      // Check per-minute limit (5 attempts)
+      const minuteKey = `ratelimit:auth:minute:${ip}`;
+      const minuteCount = await this.redis.incr(minuteKey);
+      if (minuteCount === 1) {
+        await this.redis.expire(minuteKey, 60);
+      }
+      
+      if (minuteCount > 5) {
+        res.status(429).json({
+          error: 'Too many login attempts',
+          message: 'Please wait a minute before trying again',
+          retryAfter: 60
+        });
+        return;
+      }
+      
+      // Check per-hour limit (20 attempts)
+      const hourKey = `ratelimit:auth:hour:${ip}`;
+      const hourCount = await this.redis.incr(hourKey);
+      if (hourCount === 1) {
+        await this.redis.expire(hourKey, 3600);
+      }
+      
+      if (hourCount > 20) {
+        res.status(429).json({
+          error: 'Too many login attempts',
+          message: 'Please wait an hour before trying again',
+          retryAfter: 3600
+        });
+        return;
+      }
+      
+      next();
+    } catch (error) {
+      console.error('[AuthRateLimiter] Error:', error);
+      next(); // Fail open
+    }
+  };
+}
