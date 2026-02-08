@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -8,8 +8,6 @@ import {
   ShoppingCart,
   Users,
   Zap,
-  TrendingUp,
-  TrendingDown,
   ArrowRight,
   RefreshCw,
   X,
@@ -20,79 +18,29 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { PageHeader } from '@/components/ui/page-header'
+import { StatsCard, StatsGrid } from '@/components/ui/stats-card'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { LoadingPage } from '@/components/ui/loading-spinner'
 import { formatCurrency } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth-context'
-import { api } from '@/lib/api'
+import { useDashboardStats, useRevenueChart } from '@/hooks/use-analytics'
 
-interface DashboardStats {
-  revenue: {
-    today: number
-    thisWeek: number
-    thisMonth: number
-    percentChange: number
-  }
-  orders: {
-    today: number
-    pending: number
-    percentChange: number
-  }
-  customers: {
-    total: number
-    newThisMonth: number
-    percentChange: number
-  }
-  aiUsage: {
-    tokensUsed: number
-    costSaved: number
-    requestsToday: number
-  }
-  recentOrders: Array<{
-    id: string
-    customer: string
-    total: number
-    status: string
-    time: string
-  }>
+interface RecentOrder {
+  id: string
+  customer: string
+  total: number
+  status: string
+  time: string
 }
 
-interface ChartData {
-  date: string
-  revenue: number
-  orders: number
-}
-
-const statusColors: Record<string, string> = {
-  pending: 'warning',
-  preparing: 'default',
-  ready: 'success',
-  delivered: 'secondary',
-  completed: 'success',
-}
-
-// Demo data for when API isn't available
-const fallbackStats: DashboardStats = {
-  revenue: { today: 2847.50, thisWeek: 18432.75, thisMonth: 67892.00, percentChange: 12.5 },
-  orders: { today: 47, pending: 5, percentChange: 8.3 },
-  customers: { total: 1284, newThisMonth: 156, percentChange: 14.2 },
-  aiUsage: { tokensUsed: 124500, costSaved: 342.50, requestsToday: 89 },
-  recentOrders: [
-    { id: 'ORD-4521', customer: 'Sarah Wilson', total: 68.50, status: 'preparing', time: '5 min ago' },
-    { id: 'ORD-4520', customer: 'Mike Johnson', total: 34.25, status: 'ready', time: '12 min ago' },
-    { id: 'ORD-4519', customer: 'Emma Davis', total: 89.00, status: 'delivered', time: '25 min ago' },
-    { id: 'ORD-4518', customer: 'James Brown', total: 45.75, status: 'delivered', time: '32 min ago' },
-    { id: 'ORD-4517', customer: 'Lisa Anderson', total: 112.50, status: 'delivered', time: '45 min ago' },
-  ],
-}
-
-const fallbackChartData: ChartData[] = [
-  { date: 'Mon', revenue: 2150, orders: 34 },
-  { date: 'Tue', revenue: 2890, orders: 42 },
-  { date: 'Wed', revenue: 2650, orders: 38 },
-  { date: 'Thu', revenue: 3210, orders: 48 },
-  { date: 'Fri', revenue: 3890, orders: 56 },
-  { date: 'Sat', revenue: 4250, orders: 62 },
-  { date: 'Sun', revenue: 2847, orders: 47 },
+// Demo data for when API returns empty
+const fallbackRecentOrders: RecentOrder[] = [
+  { id: 'ORD-4521', customer: 'Sarah Wilson', total: 68.50, status: 'preparing', time: '5 min ago' },
+  { id: 'ORD-4520', customer: 'Mike Johnson', total: 34.25, status: 'ready', time: '12 min ago' },
+  { id: 'ORD-4519', customer: 'Emma Davis', total: 89.00, status: 'delivered', time: '25 min ago' },
+  { id: 'ORD-4518', customer: 'James Brown', total: 45.75, status: 'delivered', time: '32 min ago' },
+  { id: 'ORD-4517', customer: 'Lisa Anderson', total: 112.50, status: 'delivered', time: '45 min ago' },
 ]
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -100,113 +48,51 @@ const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 export default function DashboardPage() {
   const { tenant, user } = useAuth()
   const searchParams = useSearchParams()
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [stats, setStats] = useState<DashboardStats>(fallbackStats)
-  const [chartData, setChartData] = useState<ChartData[]>(fallbackChartData)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
+
+  // TanStack Query hooks
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats, isFetching } = useDashboardStats()
+  const { data: chartData } = useRevenueChart(7)
 
   // Check for welcome parameter from onboarding
   useEffect(() => {
     if (searchParams.get('welcome') === 'true') {
       setShowWelcome(true)
-      // Remove the query parameter from URL without refresh
       window.history.replaceState({}, '', '/dashboard')
     }
   }, [searchParams])
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setError(null)
+  // Format chart data with day names
+  const formattedChart = chartData?.map((item: { date: string; revenue: number; orders: number }) => ({
+    date: dayNames[new Date(item.date).getDay()],
+    revenue: item.revenue,
+    orders: item.orders,
+  })) || []
 
-      // Fetch dashboard stats
-      const statsResponse = await api.getDashboardStats()
-      if (statsResponse.data) {
-        // API response may not include recentOrders, add fallback
-        setStats({
-          ...statsResponse.data,
-          recentOrders: (statsResponse.data as any).recentOrders || fallbackStats.recentOrders,
-        })
-      }
+  const recentOrders = (stats as any)?.recentOrders || fallbackRecentOrders
 
-      // Fetch revenue chart data
-      const chartResponse = await api.getRevenueChart(7)
-      if (chartResponse.data) {
-        // Format chart data with day names
-        const formattedChart = chartResponse.data.map((item: { date: string; revenue: number; orders: number }) => ({
-          date: dayNames[new Date(item.date).getDay()],
-          revenue: item.revenue,
-          orders: item.orders,
-        }))
-        setChartData(formattedChart)
-      }
-
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err)
-      setError('Unable to load dashboard data. Please try again.')
-      // Keep showing whatever data we have
-    }
-  }, [])
-
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true)
-      await fetchDashboardData()
-      setIsLoading(false)
-    }
-    loadData()
-  }, [fetchDashboardData])
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true)
-    await fetchDashboardData()
-    setIsRefreshing(false)
-  }
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="pb-2">
-                <div className="h-4 bg-muted rounded w-24"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-8 bg-muted rounded w-32 mb-2"></div>
-                <div className="h-3 bg-muted rounded w-20"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    )
+  if (statsLoading) {
+    return <LoadingPage message="Loading dashboard..." />
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            Welcome back, {user?.firstName || 'there'}!
-          </h1>
-          <p className="text-muted-foreground">
-            Here&apos;s what&apos;s happening at {tenant?.businessName || 'your restaurant'} today.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        title={`Welcome back, ${user?.firstName || 'there'}!`}
+        description={`Here's what's happening at ${tenant?.businessName || 'your restaurant'} today.`}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetchStats()}
+            disabled={isFetching}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        }
+      />
 
       {/* Welcome Banner */}
       {showWelcome && (
@@ -257,86 +143,43 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Error Banner */}
-      {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
-
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Today&apos;s Revenue
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.revenue.today)}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-              {stats.revenue.percentChange >= 0 ? (
-                <TrendingUp className="h-3 w-3 text-green-500" />
-              ) : (
-                <TrendingDown className="h-3 w-3 text-red-500" />
-              )}
-              <span className={stats.revenue.percentChange >= 0 ? 'text-green-500' : 'text-red-500'}>
-                {stats.revenue.percentChange >= 0 ? '+' : ''}{stats.revenue.percentChange}%
-              </span>
-              from yesterday
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Orders Today
-            </CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.orders.today}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              <span className="text-yellow-500 font-medium">{stats.orders.pending} pending</span>
-              {' '}orders
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Customers
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.customers.total.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-              <TrendingUp className="h-3 w-3 text-green-500" />
-              <span className="text-green-500">+{stats.customers.newThisMonth}</span>
-              this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              AI Cost Savings
-            </CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.aiUsage.costSaved)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.aiUsage.requestsToday.toLocaleString()} AI requests today
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <StatsGrid columns={4}>
+        <StatsCard
+          title="Today's Revenue"
+          value={formatCurrency(stats?.revenue?.today || 0)}
+          icon={DollarSign}
+          trend={{
+            value: stats?.revenue?.percentChange || 0,
+            label: 'from yesterday',
+          }}
+          loading={statsLoading}
+        />
+        <StatsCard
+          title="Orders Today"
+          value={stats?.orders?.today || 0}
+          icon={ShoppingCart}
+          description={`${stats?.orders?.pending || 0} pending orders`}
+          loading={statsLoading}
+        />
+        <StatsCard
+          title="Total Customers"
+          value={(stats?.customers?.total || 0).toLocaleString()}
+          icon={Users}
+          trend={{
+            value: stats?.customers?.percentChange || 0,
+            label: 'this month',
+          }}
+          loading={statsLoading}
+        />
+        <StatsCard
+          title="AI Cost Savings"
+          value={formatCurrency(stats?.aiUsage?.costSaved || 0)}
+          icon={Zap}
+          description={`${(stats?.aiUsage?.requestsToday || 0).toLocaleString()} AI requests today`}
+          loading={statsLoading}
+        />
+      </StatsGrid>
 
       {/* Charts and Recent Orders */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -347,10 +190,10 @@ export default function DashboardPage() {
             <CardDescription>Daily revenue breakdown</CardDescription>
           </CardHeader>
           <CardContent>
-            {chartData.length > 0 ? (
+            {formattedChart.length > 0 ? (
               <div className="h-[200px] flex items-end gap-2">
-                {chartData.map((day, i) => {
-                  const maxRevenue = Math.max(...chartData.map(d => d.revenue), 1)
+                {formattedChart.map((day: any, i: number) => {
+                  const maxRevenue = Math.max(...formattedChart.map((d: any) => d.revenue), 1)
                   const height = (day.revenue / maxRevenue) * 100
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center gap-2">
@@ -386,14 +229,16 @@ export default function DashboardPage() {
               <CardTitle>Recent Orders</CardTitle>
               <CardDescription>Latest customer orders</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" className="gap-1">
-              View all <ArrowRight className="h-4 w-4" />
-            </Button>
+            <Link href="/dashboard/orders">
+              <Button variant="ghost" size="sm" className="gap-1">
+                View all <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent>
-            {stats.recentOrders.length > 0 ? (
+            {recentOrders.length > 0 ? (
               <div className="space-y-4">
-                {stats.recentOrders.map((order) => (
+                {recentOrders.map((order: RecentOrder) => (
                   <div key={order.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
@@ -407,9 +252,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Badge variant={statusColors[order.status] as 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'}>
-                        {order.status}
-                      </Badge>
+                      <StatusBadge status={order.status as any} type="order" size="sm" />
                       <span className="text-sm font-medium w-16 text-right">
                         {formatCurrency(order.total)}
                       </span>
