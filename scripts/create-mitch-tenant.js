@@ -1,16 +1,37 @@
 #!/usr/bin/env node
 /**
  * Create Mitch From Transylvania tenant with enterprise access
- * Run: DATABASE_URL=... node scripts/create-mitch-tenant.js
+ * 
+ * Required environment variables:
+ *   DATABASE_URL     - PostgreSQL connection string
+ *   ADMIN_EMAIL      - Admin user email (default: bogdan@mitchfromtransylvania.com)
+ *   ADMIN_PASSWORD   - Admin user password (REQUIRED - no default for security)
+ *   ADMIN_FIRST_NAME - Admin first name (default: Bogdan)
+ *   ADMIN_LAST_NAME  - Admin last name (default: Godja)
+ * 
+ * Usage:
+ *   DATABASE_URL=... ADMIN_PASSWORD=... node scripts/create-mitch-tenant.js
  */
 
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
+// Validate required env vars
+if (!process.env.DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is required');
+  process.exit(1);
+}
+
+if (!process.env.ADMIN_PASSWORD) {
+  console.error('❌ ADMIN_PASSWORD environment variable is required');
+  console.error('   Usage: DATABASE_URL=... ADMIN_PASSWORD=... node scripts/create-mitch-tenant.js');
+  process.exit(1);
+}
+
 const TENANT_DATA = {
   name: 'Mitch From Transylvania',
   slug: 'mitch-transylvania',
-  email: 'bogdan@mitchfromtransylvania.com',
+  email: process.env.ADMIN_EMAIL || 'bogdan@mitchfromtransylvania.com',
   settings: {
     brand_voice: 'gothic, witty, Dracula-themed',
     cuisine: 'Romanian street food',
@@ -19,10 +40,10 @@ const TENANT_DATA = {
 };
 
 const ADMIN_USER = {
-  email: 'bogdan@mitchfromtransylvania.com',
-  password: 'Mitch2026!',
-  firstName: 'Bogdan',
-  lastName: 'Godja',
+  email: process.env.ADMIN_EMAIL || 'bogdan@mitchfromtransylvania.com',
+  password: process.env.ADMIN_PASSWORD,
+  firstName: process.env.ADMIN_FIRST_NAME || 'Bogdan',
+  lastName: process.env.ADMIN_LAST_NAME || 'Godja',
   role: 'owner'
 };
 
@@ -100,9 +121,7 @@ async function main() {
     console.log('Slug:', TENANT_DATA.slug);
     console.log('Tier: Enterprise (full access)');
     console.log('');
-    console.log('Login Credentials:');
-    console.log('Email:', ADMIN_USER.email);
-    console.log('Password:', ADMIN_USER.password);
+    console.log('Login Email:', ADMIN_USER.email);
     console.log('========================================');
     
     // Output just the tenant ID for piping
