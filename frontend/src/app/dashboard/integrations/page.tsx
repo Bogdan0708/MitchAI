@@ -538,7 +538,7 @@ export default function IntegrationsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Sync Frequency</Label>
-                <select className="w-full border rounded-md px-3 py-2 text-sm">
+                <select className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground dark:bg-gray-800 dark:border-gray-600">
                   <option>Every 15 minutes</option>
                   <option>Every hour</option>
                   <option>Every 6 hours</option>

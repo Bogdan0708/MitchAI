@@ -811,7 +811,7 @@ export default function MenuPage() {
                     <select
                       value={selectedStyle}
                       onChange={(e) => setSelectedStyle(e.target.value)}
-                      className="text-xs border rounded px-2 py-1"
+                      className="text-xs border rounded px-2 py-1 bg-background text-foreground dark:bg-gray-800 dark:border-gray-600"
                     >
                       {descriptionStyles.map(style => (
                         <option key={style.id} value={style.id}>
@@ -1022,7 +1022,7 @@ export default function MenuPage() {
                 <select
                   value={newItem.categoryId || ''}
                   onChange={(e) => setNewItem({ ...newItem, categoryId: e.target.value })}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                  className="w-full border rounded-lg px-3 py-2 text-sm bg-background text-foreground dark:bg-gray-800 dark:border-gray-600"
                 >
                   <option value="">Select a category</option>
                   {categories.map((cat) => (
