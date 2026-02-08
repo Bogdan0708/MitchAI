@@ -181,24 +181,24 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-lg z-50 border-b border-gray-100">
+      <nav className="fixed top-0 left-0 right-0 bg-background/80 backdrop-blur-lg z-50 border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
               <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center">
                 <span className="text-white font-bold text-xl">M</span>
               </div>
-              <span className="font-bold text-xl text-gray-900">Mitch AI</span>
+              <span className="font-bold text-xl text-foreground">Mitch AI</span>
             </div>
             <div className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-gray-600 hover:text-gray-900 font-medium">Features</a>
-              <a href="#pricing" className="text-gray-600 hover:text-gray-900 font-medium">Pricing</a>
-              <a href="#testimonials" className="text-gray-600 hover:text-gray-900 font-medium">Testimonials</a>
+              <a href="#features" className="text-muted-foreground hover:text-foreground font-medium">Features</a>
+              <a href="#pricing" className="text-muted-foreground hover:text-foreground font-medium">Pricing</a>
+              <a href="#testimonials" className="text-muted-foreground hover:text-foreground font-medium">Testimonials</a>
             </div>
             <div className="flex items-center gap-4">
-              <Link href="/login" className="text-gray-600 hover:text-gray-900 font-medium">
+              <Link href="/login" className="text-muted-foreground hover:text-foreground font-medium">
                 Sign In
               </Link>
               <Link
@@ -213,7 +213,7 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-indigo-50 via-white to-white">
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-primary/5 via-background to-background">
         <div className="max-w-7xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-100 rounded-full text-indigo-700 font-medium text-sm mb-8">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -221,11 +221,11 @@ export default function HomePage() {
             </svg>
             AI-Powered Restaurant Management
           </div>
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
+          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight">
             The AI Assistant That<br />
-            <span className="text-indigo-600">Pays for Itself</span>
+            <span className="text-primary">Pays for Itself</span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-10">
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10">
             Automate reviews, customer chat, and menu management. Save 15+ hours weekly with AI built specifically for restaurants.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
@@ -237,28 +237,28 @@ export default function HomePage() {
             </Link>
             <a
               href="#demo"
-              className="w-full sm:w-auto px-8 py-4 bg-white text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-semibold text-lg border border-gray-200"
+              className="w-full sm:w-auto px-8 py-4 bg-card text-foreground rounded-xl hover:bg-muted transition-colors font-semibold text-lg border border-border"
             >
               Watch Demo
             </a>
           </div>
-          <p className="text-sm text-gray-500">No credit card required. Setup in under 5 minutes.</p>
+          <p className="text-sm text-muted-foreground">No credit card required. Setup in under 5 minutes.</p>
         </div>
 
         {/* Dashboard Preview */}
         <div className="max-w-6xl mx-auto mt-16">
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-200">
-            <div className="absolute inset-0 bg-gradient-to-t from-gray-900/20 to-transparent z-10 pointer-events-none"></div>
-            <div className="bg-gray-900 p-2 flex items-center gap-2">
+          <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-border">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent z-10 pointer-events-none"></div>
+            <div className="bg-card p-2 flex items-center gap-2 border-b border-border">
               <div className="flex gap-1.5">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                 <div className="w-3 h-3 rounded-full bg-green-500"></div>
               </div>
-              <div className="flex-1 text-center text-xs text-gray-400">app.mitch-ai.com</div>
+              <div className="flex-1 text-center text-xs text-muted-foreground">app.mitch-ai.com</div>
             </div>
-            <div className="bg-gray-100 h-[400px] sm:h-[500px] flex items-center justify-center">
-              <div className="text-gray-400 text-center">
+            <div className="bg-muted h-[400px] sm:h-[500px] flex items-center justify-center">
+              <div className="text-muted-foreground text-center">
                 <svg className="w-16 h-16 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
                 </svg>
@@ -288,10 +288,10 @@ export default function HomePage() {
       <section id="features" className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
               Everything You Need to Run Smarter
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               One platform for all your customer communication and operations automation
             </p>
           </div>
@@ -300,16 +300,16 @@ export default function HomePage() {
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="bg-white rounded-2xl p-8 border border-gray-200 hover:border-indigo-200 hover:shadow-lg transition-all group"
+                className="bg-card rounded-2xl p-8 border border-border hover:border-primary/50 hover:shadow-lg transition-all group"
               >
-                <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 mb-6 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary mb-6 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                   {feature.icon}
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-                <p className="text-gray-600 mb-4">{feature.description}</p>
+                <h3 className="text-xl font-bold text-foreground mb-3">{feature.title}</h3>
+                <p className="text-muted-foreground mb-4">{feature.description}</p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-indigo-600">{feature.stat}</span>
-                  <span className="text-gray-500 text-sm">{feature.statLabel}</span>
+                  <span className="text-2xl font-bold text-primary">{feature.stat}</span>
+                  <span className="text-muted-foreground text-sm">{feature.statLabel}</span>
                 </div>
               </div>
             ))}
@@ -318,13 +318,13 @@ export default function HomePage() {
       </section>
 
       {/* How It Works */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
               Live in 30 Minutes
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               No technical skills needed. We handle the heavy lifting.
             </p>
           </div>
@@ -342,8 +342,8 @@ export default function HomePage() {
                 {index < 2 && (
                   <div className="hidden md:block absolute top-8 left-[60%] w-[80%] h-0.5 bg-indigo-200"></div>
                 )}
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{item.title}</h3>
-                <p className="text-gray-600">{item.description}</p>
+                <h3 className="text-xl font-bold text-foreground mb-3">{item.title}</h3>
+                <p className="text-muted-foreground">{item.description}</p>
               </div>
             ))}
           </div>
@@ -354,14 +354,14 @@ export default function HomePage() {
       <section id="testimonials" className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
               Loved by Restaurant Owners
             </h2>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-white rounded-2xl p-8 border border-gray-200">
+              <div key={index} className="bg-card rounded-2xl p-8 border border-border">
                 <div className="flex gap-1 mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (
                     <svg key={i} className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
@@ -369,10 +369,10 @@ export default function HomePage() {
                     </svg>
                   ))}
                 </div>
-                <p className="text-gray-600 mb-6 italic">&quot;{testimonial.quote}&quot;</p>
+                <p className="text-muted-foreground mb-6 italic">&quot;{testimonial.quote}&quot;</p>
                 <div>
-                  <div className="font-semibold text-gray-900">{testimonial.author}</div>
-                  <div className="text-sm text-gray-500">{testimonial.role}</div>
+                  <div className="font-semibold text-foreground">{testimonial.author}</div>
+                  <div className="text-sm text-muted-foreground">{testimonial.role}</div>
                 </div>
               </div>
             ))}
@@ -381,13 +381,13 @@ export default function HomePage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="py-20 px-4 sm:px-6 lg:px-8 bg-gray-50">
+      <section id="pricing" className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
               Simple, Transparent Pricing
             </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Start free, upgrade when you are ready. No hidden fees.
             </p>
           </div>
@@ -398,8 +398,8 @@ export default function HomePage() {
                 key={index}
                 className={`rounded-2xl p-8 ${
                   plan.highlighted
-                    ? 'bg-indigo-600 text-white ring-4 ring-indigo-600 ring-offset-4'
-                    : 'bg-white border border-gray-200'
+                    ? 'bg-primary text-primary-foreground ring-4 ring-primary ring-offset-4 ring-offset-background'
+                    : 'bg-card border border-border'
                 }`}
               >
                 {plan.highlighted && (
@@ -407,25 +407,25 @@ export default function HomePage() {
                     Most Popular
                   </div>
                 )}
-                <h3 className={`text-xl font-bold mb-2 ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>
+                <h3 className={`text-xl font-bold mb-2 ${plan.highlighted ? 'text-primary-foreground' : 'text-foreground'}`}>
                   {plan.name}
                 </h3>
-                <p className={`text-sm mb-4 ${plan.highlighted ? 'text-indigo-200' : 'text-gray-500'}`}>
+                <p className={`text-sm mb-4 ${plan.highlighted ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                   {plan.description}
                 </p>
                 <div className="mb-6">
-                  <span className={`text-4xl font-bold ${plan.highlighted ? 'text-white' : 'text-gray-900'}`}>
+                  <span className={`text-4xl font-bold ${plan.highlighted ? 'text-primary-foreground' : 'text-foreground'}`}>
                     ${plan.price}
                   </span>
-                  <span className={plan.highlighted ? 'text-indigo-200' : 'text-gray-500'}>{plan.period}</span>
+                  <span className={plan.highlighted ? 'text-primary-foreground/70' : 'text-muted-foreground'}>{plan.period}</span>
                 </div>
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-center gap-3">
-                      <svg className={`w-5 h-5 ${plan.highlighted ? 'text-indigo-200' : 'text-indigo-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className={`w-5 h-5 ${plan.highlighted ? 'text-primary-foreground/70' : 'text-primary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
-                      <span className={plan.highlighted ? 'text-indigo-100' : 'text-gray-600'}>{feature}</span>
+                      <span className={plan.highlighted ? 'text-primary-foreground/90' : 'text-muted-foreground'}>{feature}</span>
                     </li>
                   ))}
                 </ul>
