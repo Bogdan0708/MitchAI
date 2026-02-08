@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { Mail, Bell, Send, Clock } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import { PageHeader } from '@/components/ui/page-header'
+import { LoadingPage } from '@/components/ui/loading-spinner'
+import { EmptyState } from '@/components/ui/empty-state'
 
 interface NotificationPreferences {
   reviewAlerts: boolean
@@ -64,7 +68,7 @@ export default function NotificationsPage() {
     setSendingTest(type)
     try {
       await api.sendTestEmail(type)
-      setMessage({ type: 'success', text: `Test ${type} email sent! Check your console/inbox.` })
+      setMessage({ type: 'success', text: `Test ${type} email sent! Check your inbox.` })
       setTimeout(() => setMessage(null), 3000)
     } catch (err) {
       setMessage({ type: 'error', text: 'Failed to send test email' })
@@ -74,27 +78,21 @@ export default function NotificationsPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    )
+    return <LoadingPage message="Loading notification settings..." />
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Notification Settings</h1>
-        <p className="text-muted-foreground">
-          Manage how and when you receive notifications
-        </p>
-      </div>
+      <PageHeader
+        title="Notification Settings"
+        description="Manage how and when you receive notifications"
+      />
 
       {message && (
         <div
-          className={`p-4 rounded-md text-sm ${
+          className={`p-4 rounded-lg text-sm ${
             message.type === 'success'
-              ? 'bg-green-50 text-green-800'
+              ? 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-400'
               : 'bg-destructive/10 text-destructive'
           }`}
         >
@@ -105,7 +103,10 @@ export default function NotificationsPage() {
       {/* Email Preferences */}
       <Card>
         <CardHeader>
-          <CardTitle>Email Notifications</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Email Notifications
+          </CardTitle>
           <CardDescription>Choose what email notifications you want to receive</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -152,9 +153,12 @@ export default function NotificationsPage() {
       {/* Test Emails */}
       <Card>
         <CardHeader>
-          <CardTitle>Test Email Notifications</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            Test Email Notifications
+          </CardTitle>
           <CardDescription>
-            Send test emails to preview how notifications look (check your server console in demo mode)
+            Send test emails to preview how notifications look
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -162,21 +166,18 @@ export default function NotificationsPage() {
             <TestEmailCard
               title="Welcome Email"
               description="The email new users receive after signing up"
-              type="welcome"
               isSending={sendingTest === 'welcome'}
               onSend={() => sendTestEmail('welcome')}
             />
             <TestEmailCard
               title="Review Alert"
               description="Sample notification for a new review"
-              type="review"
               isSending={sendingTest === 'review'}
               onSend={() => sendTestEmail('review')}
             />
             <TestEmailCard
               title="Weekly Digest"
               description="Sample weekly performance summary"
-              type="digest"
               isSending={sendingTest === 'digest'}
               onSend={() => sendTestEmail('digest')}
             />
@@ -188,18 +189,18 @@ export default function NotificationsPage() {
       <Card className="opacity-60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
             Notification History
             <span className="text-xs font-normal bg-muted px-2 py-1 rounded">Coming Soon</span>
           </CardTitle>
           <CardDescription>View a log of all notifications sent to your account</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <svg className="mx-auto h-12 w-12 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <p className="mt-2">Notification history will be available in a future update</p>
-          </div>
+          <EmptyState
+            icon={Bell}
+            title="Coming Soon"
+            description="Notification history will be available in a future update"
+          />
         </CardContent>
       </Card>
     </div>
@@ -236,7 +237,7 @@ function NotificationToggle({
       >
         <span
           className={`
-            inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+            inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm
             ${enabled ? 'translate-x-6' : 'translate-x-1'}
           `}
         />
@@ -248,13 +249,11 @@ function NotificationToggle({
 function TestEmailCard({
   title,
   description,
-  type,
   isSending,
   onSend,
 }: {
   title: string
   description: string
-  type: string
   isSending: boolean
   onSend: () => void
 }) {
@@ -278,9 +277,7 @@ function TestEmailCard({
           </>
         ) : (
           <>
-            <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
+            <Mail className="h-4 w-4 mr-2" />
             Send Test
           </>
         )}
