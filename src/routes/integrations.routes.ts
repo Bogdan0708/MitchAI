@@ -297,7 +297,7 @@ router.post('/square/orders/import', async (req: Request, res: Response) => {
             orderId,
             item.name,
             item.quantity,
-            item.basePriceMoney / 100,
+            (item.basePriceMoney || item.totalMoney) / 100,
             item.totalMoney / 100,
             item.variationName || null
           ]);

@@ -80,12 +80,15 @@ export interface SquareOrder {
   locationId: string;
   createdAt: Date;
   totalMoney: number;
+  taxMoney?: number;
   currency: string;
   state: string;
   lineItems: Array<{
     name: string;
     quantity: number;
     totalMoney: number;
+    basePriceMoney?: number;
+    variationName?: string;
   }>;
 }
 
@@ -276,12 +279,15 @@ export class SquareService {
       locationId: order.location_id,
       createdAt: new Date(order.created_at),
       totalMoney: order.total_money?.amount || 0,
+      taxMoney: order.total_tax_money?.amount || 0,
       currency: order.total_money?.currency || 'GBP',
       state: order.state,
       lineItems: (order.line_items || []).map((item: any) => ({
         name: item.name,
         quantity: parseInt(item.quantity) || 1,
         totalMoney: item.total_money?.amount || 0,
+        basePriceMoney: item.base_price_money?.amount || item.total_money?.amount || 0,
+        variationName: item.variation_name || null,
       })),
     }));
   }
