@@ -189,5 +189,140 @@ router.get('/square/orders', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /integrations/square/orders/import
+ * Import historical orders from Square into the database
+ */
+router.post('/square/orders/import', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    const { startDate, endDate } = req.body;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate required (ISO format)' });
+    }
+
+    const accessToken = process.env.SQUARE_ACCESS_TOKEN;
+    const applicationId = process.env.SQUARE_APP_ID;
+
+    if (!accessToken || !applicationId) {
+      return res.status(400).json({ error: 'Square credentials not configured' });
+    }
+
+    const config: SquareConfig = {
+      accessToken,
+      applicationId,
+      environment: 'production',
+    };
+
+    const service = createSquareService(config);
+    
+    // Fetch orders from Square
+    const orders = await service.getOrders(new Date(startDate), new Date(endDate));
+    console.log(`[Square] Fetched ${orders.length} orders from ${startDate} to ${endDate}`);
+
+    // Get location for tenant
+    const locationResult = await pool.query(
+      `SELECT id FROM locations WHERE tenant_id = $1 LIMIT 1`,
+      [tenantId]
+    );
+    
+    if (locationResult.rows.length === 0) {
+      return res.status(400).json({ error: 'No location found for tenant' });
+    }
+    const locationId = locationResult.rows[0].id;
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const order of orders) {
+      try {
+        // Check if order already exists (by Square ID stored in notes)
+        const existing = await pool.query(
+          `SELECT id FROM orders WHERE tenant_id = $1 AND notes LIKE $2`,
+          [tenantId, `%square_id:${order.id}%`]
+        );
+
+        if (existing.rows.length > 0) {
+          skipped++;
+          continue;
+        }
+
+        // Generate order number
+        const orderNumber = `SQ-${order.id.substring(0, 8).toUpperCase()}`;
+        
+        // Calculate totals (amounts are in pence)
+        const subtotal = (order.totalMoney - (order.taxMoney || 0)) / 100;
+        const taxAmount = (order.taxMoney || 0) / 100;
+        const totalAmount = order.totalMoney / 100;
+
+        // Insert order
+        const orderResult = await pool.query(`
+          INSERT INTO orders (
+            tenant_id, location_id, order_number, order_type, status,
+            subtotal, tax_amount, total_amount, payment_status, payment_method,
+            notes, source, created_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          RETURNING id
+        `, [
+          tenantId,
+          locationId,
+          orderNumber,
+          'takeaway', // Default for Square orders
+          'completed',
+          subtotal,
+          taxAmount,
+          totalAmount,
+          'paid',
+          'square',
+          `Imported from Square | square_id:${order.id}`,
+          'square',
+          order.createdAt
+        ]);
+
+        const orderId = orderResult.rows[0].id;
+
+        // Insert order items
+        for (const item of order.lineItems) {
+          await pool.query(`
+            INSERT INTO order_items (
+              tenant_id, order_id, item_name, quantity, unit_price, total_price, notes
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `, [
+            tenantId,
+            orderId,
+            item.name,
+            item.quantity,
+            item.basePriceMoney / 100,
+            item.totalMoney / 100,
+            item.variationName || null
+          ]);
+        }
+
+        imported++;
+      } catch (err: any) {
+        errors.push(`Order ${order.id}: ${err.message}`);
+      }
+    }
+
+    console.log(`[Square] Import complete: ${imported} imported, ${skipped} skipped, ${errors.length} errors`);
+
+    return res.json({
+      success: true,
+      totalFetched: orders.length,
+      imported,
+      skipped,
+      errors: errors.slice(0, 10), // Limit error output
+    });
+  } catch (error: any) {
+    console.error('[Square] Orders import failed:', error.message);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
   return router;
 }
