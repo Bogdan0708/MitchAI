@@ -1,0 +1,146 @@
+/**
+ * Mobile & Touch Optimizations
+ * 
+ * - 44px minimum touch targets (Apple HIG / WCAG)
+ * - 16px minimum font size for inputs (prevents iOS zoom)
+ * - Safe area padding for notched devices
+ */
+
+/* Touch target sizes for mobile/tablet */
+@media (max-width: 768px) {
+  /* Ensure buttons are tappable */
+  button,
+  [role="button"],
+  a.btn,
+  .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Form inputs - prevent iOS zoom and ensure tappability */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  select,
+  textarea {
+    font-size: 1rem; /* 16px prevents iOS zoom */
+    padding: 0.75rem 1rem;
+    min-height: 44px;
+  }
+
+  /* Checkboxes and radios */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 24px;
+    min-width: 24px;
+  }
+
+  /* Space between tappable elements */
+  .btn + .btn,
+  button + button {
+    margin-left: 0.5rem;
+  }
+
+  /* Cards - larger tap areas */
+  .card-interactive {
+    padding: 1rem;
+  }
+}
+
+/* Tablet-specific (POS mode) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Larger touch targets for fast-paced restaurant service */
+  button.btn-action,
+  .action-button {
+    min-height: 56px;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  /* Order items - easy to tap */
+  .order-item {
+    min-height: 60px;
+    padding: 1rem;
+  }
+}
+
+/* Safe area for notched devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .fixed-bottom-nav {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Tactile feedback for touch */
+@media (hover: none) and (pointer: coarse) {
+  button:active,
+  [role="button"]:active,
+  .btn:active {
+    transform: scale(0.97);
+    transition: transform 0.1s ease;
+  }
+
+  /* Ripple effect placeholder */
+  .touch-ripple {
+    position: relative;
+    overflow: hidden;
+  }
+}
+
+/* Prevent text selection during rapid tapping */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Quick action buttons for service */
+.quick-action {
+  min-height: 4rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* Bottom navigation for mobile POS */
+.mobile-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-around;
+  padding: 0.75rem;
+  background: hsl(var(--background));
+  border-top: 1px solid hsl(var(--border));
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+.mobile-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 64px;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  transition: color 0.2s;
+}
+
+.mobile-nav-item.active,
+.mobile-nav-item:hover {
+  color: hsl(var(--primary));
+}
