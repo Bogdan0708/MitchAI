@@ -7,9 +7,11 @@
 
 import { Router } from 'express';
 import { Pool } from 'pg';
+import Redis from 'ioredis';
 import { validate } from '../middleware/validate.middleware';
 import { apiResponse } from '../lib/api-response';
 import { getHospitalityAI } from '../services/ai';
+import { AIRateLimiter } from '../middleware/rateLimit.middleware';
 
 // Import validators (we'll create these)
 import {
@@ -21,9 +23,12 @@ import {
   chatSchema,
 } from '../validators/ai-orchestrator.validator';
 
-export function createAIRouter(pool: Pool): Router {
+export function createAIRouter(pool: Pool, redis?: Redis): Router {
   const router = Router();
   const hospitalityAI = getHospitalityAI();
+  
+  // AI-specific rate limiting (if Redis available)
+  const aiRateLimiter = redis ? new AIRateLimiter(redis) : null;
 
   // ============================================================================
   // HEALTH & STATUS
@@ -76,7 +81,10 @@ export function createAIRouter(pool: Pool): Router {
    * POST /ai/review-response
    * Generate a professional response to a customer review
    */
-  router.post('/review-response', validate(generateReviewResponseSchema), async (req, res) => {
+  router.post('/review-response', 
+    ...(aiRateLimiter ? [aiRateLimiter.standard] : []),
+    validate(generateReviewResponseSchema), 
+    async (req, res) => {
     try {
       const tenantId = req.tenant!.tenantId;
       const { review, business_context, wallet_address, preferred_provider } = req.body;
@@ -143,7 +151,10 @@ export function createAIRouter(pool: Pool): Router {
    * POST /ai/menu-description
    * Generate an appetizing menu item description
    */
-  router.post('/menu-description', validate(generateMenuDescriptionSchema), async (req, res) => {
+  router.post('/menu-description', 
+    ...(aiRateLimiter ? [aiRateLimiter.standard] : []),
+    validate(generateMenuDescriptionSchema), 
+    async (req, res) => {
     try {
       const tenantId = req.tenant!.tenantId;
       const { item, style, language, max_length, wallet_address } = req.body;
@@ -189,7 +200,9 @@ export function createAIRouter(pool: Pool): Router {
    * POST /ai/menu-description/batch
    * Generate descriptions for multiple menu items
    */
-  router.post('/menu-description/batch', async (req, res) => {
+  router.post('/menu-description/batch', 
+    ...(aiRateLimiter ? [aiRateLimiter.batch] : []),
+    async (req, res) => {
     try {
       const tenantId = req.tenant!.tenantId;
       const { items, style, language, wallet_address } = req.body;
@@ -254,7 +267,10 @@ export function createAIRouter(pool: Pool): Router {
    * POST /ai/content
    * Generate marketing content (social posts, emails, promos)
    */
-  router.post('/content', validate(generateContentSchema), async (req, res) => {
+  router.post('/content', 
+    ...(aiRateLimiter ? [aiRateLimiter.standard] : []),
+    validate(generateContentSchema), 
+    async (req, res) => {
     try {
       const tenantId = req.tenant!.tenantId;
       const { type, topic, context, tone, platform, language, max_length, wallet_address } = req.body;
@@ -300,7 +316,10 @@ export function createAIRouter(pool: Pool): Router {
    * POST /ai/sentiment
    * Analyze sentiment of customer feedback
    */
-  router.post('/sentiment', validate(analyzeSentimentSchema), async (req, res) => {
+  router.post('/sentiment', 
+    ...(aiRateLimiter ? [aiRateLimiter.standard] : []),
+    validate(analyzeSentimentSchema), 
+    async (req, res) => {
     try {
       const tenantId = req.tenant!.tenantId;
       const { texts, wallet_address } = req.body;
@@ -339,7 +358,10 @@ export function createAIRouter(pool: Pool): Router {
    * POST /ai/translate
    * Translate content with hospitality context
    */
-  router.post('/translate', validate(translateSchema), async (req, res) => {
+  router.post('/translate', 
+    ...(aiRateLimiter ? [aiRateLimiter.standard] : []),
+    validate(translateSchema), 
+    async (req, res) => {
     try {
       const tenantId = req.tenant!.tenantId;
       const { text, target_language, source_language, context, wallet_address } = req.body;
@@ -383,7 +405,10 @@ export function createAIRouter(pool: Pool): Router {
    * POST /ai/chat
    * General hospitality assistant chat
    */
-  router.post('/chat', validate(chatSchema), async (req, res) => {
+  router.post('/chat', 
+    ...(aiRateLimiter ? [aiRateLimiter.standard] : []),
+    validate(chatSchema), 
+    async (req, res) => {
     try {
       const tenantId = req.tenant!.tenantId;
       const { messages, business_context, wallet_address, preferred_provider } = req.body;

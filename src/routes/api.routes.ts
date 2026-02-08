@@ -1730,7 +1730,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   router.use('/intelligence', createIntelligenceRouter(pool));
 
   // AI Orchestration routes
-  router.use('/ai', createAIRouter(pool));
+  router.use('/ai', createAIRouter(pool, redis));
 
   // Third-party integrations (Square, Google Business, etc.)
   router.use('/integrations', createIntegrationsRouter(pool));
