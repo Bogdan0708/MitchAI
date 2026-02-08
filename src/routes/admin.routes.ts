@@ -210,5 +210,68 @@ export function createAdminRouter(pool: Pool): Router {
     }
   });
 
+  /**
+   * POST /admin/square/sync
+   * Manually trigger Square order sync for a tenant
+   */
+  router.post('/square/sync', async (req: Request, res: Response) => {
+    try {
+      const { tenantId, daysBack = 1 } = req.body;
+      
+      if (!tenantId) {
+        return res.status(400).json({ error: 'tenantId required' });
+      }
+
+      const { syncSquareOrders } = await import('../jobs/square-sync.job');
+      const result = await syncSquareOrders(pool, tenantId, daysBack);
+
+      return res.json(result);
+    } catch (error: any) {
+      console.error('[Admin] Square sync failed:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * POST /admin/square/sync-all
+   * Sync Square orders for all tenants with Square integration
+   * Used by cron jobs / scheduled tasks
+   */
+  router.post('/square/sync-all', async (_req: Request, res: Response) => {
+    try {
+      // Get all active tenants
+      const tenantsResult = await pool.query(`
+        SELECT id, name FROM tenants WHERE status = 'active' AND deleted_at IS NULL
+      `);
+
+      const { syncSquareOrders } = await import('../jobs/square-sync.job');
+      const results = [];
+
+      for (const tenant of tenantsResult.rows) {
+        const result = await syncSquareOrders(pool, tenant.id, 1);
+        results.push({
+          ...result,
+          tenantName: tenant.name,
+        });
+      }
+
+      const totalImported = results.reduce((sum, r) => sum + r.ordersImported, 0);
+      const totalSkipped = results.reduce((sum, r) => sum + r.ordersSkipped, 0);
+
+      console.log(`[SquareSync] All tenants: ${totalImported} imported, ${totalSkipped} skipped`);
+
+      return res.json({
+        success: true,
+        tenantsProcessed: results.length,
+        totalOrdersImported: totalImported,
+        totalOrdersSkipped: totalSkipped,
+        results,
+      });
+    } catch (error: any) {
+      console.error('[Admin] Square sync-all failed:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 }
