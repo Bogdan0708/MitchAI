@@ -491,6 +491,89 @@ export async function getTenantRateLimitStatus(
 export default RateLimitMiddleware;
 
 // ============================================================================
+// AI RATE LIMITER - Protect expensive AI operations
+// ============================================================================
+
+/**
+ * Rate limiting specifically for AI endpoints
+ * These are expensive operations (tokens, API costs)
+ * 
+ * Limits:
+ * - 30 requests per minute per tenant (AI operations)
+ * - 10 requests per minute for batch operations
+ */
+export class AIRateLimiter {
+  private redis: Redis;
+  
+  constructor(redis: Redis) {
+    this.redis = redis;
+  }
+
+  /**
+   * Standard AI endpoint rate limit
+   * 30 requests per minute per tenant
+   */
+  standard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    await this.checkLimit(req, res, next, 30, 60, 'ai:standard');
+  };
+
+  /**
+   * Batch AI operations rate limit
+   * 10 requests per minute per tenant (these process multiple items)
+   */
+  batch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    await this.checkLimit(req, res, next, 10, 60, 'ai:batch');
+  };
+
+  /**
+   * Heavy AI operations (long-running, expensive)
+   * 5 requests per minute per tenant
+   */
+  heavy = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    await this.checkLimit(req, res, next, 5, 60, 'ai:heavy');
+  };
+
+  private async checkLimit(
+    req: Request, 
+    res: Response, 
+    next: NextFunction,
+    maxRequests: number,
+    windowSeconds: number,
+    keyPrefix: string
+  ): Promise<void> {
+    try {
+      // Use tenant ID if available, otherwise IP
+      const identifier = req.tenant?.tenantId || req.ip || 'unknown';
+      const key = `ratelimit:${keyPrefix}:${identifier}`;
+      
+      const count = await this.redis.incr(key);
+      if (count === 1) {
+        await this.redis.expire(key, windowSeconds);
+      }
+      
+      // Set rate limit headers
+      res.setHeader('X-RateLimit-Limit', maxRequests.toString());
+      res.setHeader('X-RateLimit-Remaining', Math.max(0, maxRequests - count).toString());
+      
+      if (count > maxRequests) {
+        res.status(429).json({
+          error: 'AI rate limit exceeded',
+          message: `Maximum ${maxRequests} AI requests per minute`,
+          code: 'AI_RATE_LIMIT_EXCEEDED',
+          retryAfter: windowSeconds
+        });
+        return;
+      }
+      
+      next();
+    } catch (error) {
+      console.error('[AIRateLimiter] Error:', error);
+      next(); // Fail open
+    }
+  }
+}
+
+// ============================================================================
 // AUTH RATE LIMITER - Stricter limits for login/signup
 // ============================================================================
 

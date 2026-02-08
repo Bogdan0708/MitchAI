@@ -408,7 +408,7 @@ if (config.nodeEnv === 'development') {
 app.set('trust proxy', 1);
 
 // Global IP-based rate limiting (DDoS protection)
-const ipRateLimiter = new IPRateLimiter(redis, 60000, 1000); // 1000 requests per minute per IP
+const ipRateLimiter = new IPRateLimiter(redis, 60000, 300); // 300 requests per minute per IP (DDoS protection)
 app.use(ipRateLimiter.limit);
 
 // ============================================================================
