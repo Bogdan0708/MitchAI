@@ -1,0 +1,86 @@
+/**
+ * Hospitality Theme - Restaurant-specific design tokens
+ * 
+ * Color psychology for food/hospitality:
+ * - Warm tones (orange/red) stimulate appetite
+ * - Green evokes freshness
+ * - White/clean represents hygiene
+ * - Dark/purple suggests premium/elegance
+ */
+
+:root {
+  /* Appetite-stimulating warm accent */
+  --accent-warm: 24 95% 53%;
+  --accent-warm-foreground: 0 0% 100%;
+  
+  /* Freshness green */
+  --accent-fresh: 142 76% 45%;
+  --accent-fresh-foreground: 0 0% 100%;
+  
+  /* Premium/elegance purple */
+  --accent-premium: 280 40% 30%;
+  --accent-premium-foreground: 0 0% 100%;
+
+  /* Status colors - restaurant context */
+  --status-available: 142 76% 45%;
+  --status-unavailable: 0 84% 60%;
+  --status-low-stock: 38 92% 50%;
+  --status-preparing: 210 100% 50%;
+  --status-ready: 142 76% 36%;
+}
+
+.dark {
+  /* Desaturated for dark backgrounds */
+  --accent-warm: 24 80% 60%;
+  --accent-warm-foreground: 0 0% 10%;
+  
+  --accent-fresh: 142 60% 50%;
+  --accent-fresh-foreground: 0 0% 10%;
+  
+  --accent-premium: 280 35% 50%;
+  --accent-premium-foreground: 0 0% 100%;
+
+  /* Status colors - adjusted for dark mode */
+  --status-available: 142 60% 50%;
+  --status-unavailable: 0 70% 55%;
+  --status-low-stock: 38 80% 55%;
+  --status-preparing: 210 80% 60%;
+  --status-ready: 142 60% 45%;
+}
+
+/* Utility classes for hospitality accents */
+.bg-accent-warm {
+  background-color: hsl(var(--accent-warm));
+}
+.text-accent-warm {
+  color: hsl(var(--accent-warm));
+}
+.bg-accent-fresh {
+  background-color: hsl(var(--accent-fresh));
+}
+.text-accent-fresh {
+  color: hsl(var(--accent-fresh));
+}
+.bg-accent-premium {
+  background-color: hsl(var(--accent-premium));
+}
+.text-accent-premium {
+  color: hsl(var(--accent-premium));
+}
+
+/* Status indicators */
+.status-available {
+  background-color: hsl(var(--status-available));
+}
+.status-unavailable {
+  background-color: hsl(var(--status-unavailable));
+}
+.status-low-stock {
+  background-color: hsl(var(--status-low-stock));
+}
+.status-preparing {
+  background-color: hsl(var(--status-preparing));
+}
+.status-ready {
+  background-color: hsl(var(--status-ready));
+}
