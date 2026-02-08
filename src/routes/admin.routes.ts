@@ -273,5 +273,57 @@ export function createAdminRouter(pool: Pool): Router {
     }
   });
 
+  /**
+   * POST /admin/email/test
+   * Send a test email
+   */
+  router.post('/email/test', async (req: Request, res: Response) => {
+    try {
+      const { to, type = 'summary' } = req.body;
+      
+      if (!to) {
+        return res.status(400).json({ error: 'to email required' });
+      }
+
+      const { getEmailService } = await import('../services/email/email.service');
+      const emailService = getEmailService();
+
+      let success = false;
+      
+      if (type === 'order') {
+        success = await emailService.sendOrderAlert(to, {
+          orderNumber: 'TEST-001',
+          total: 24.99,
+          items: [
+            { name: 'Mici Pork/Beef', quantity: 2 },
+            { name: 'Small Chips', quantity: 1 },
+          ],
+          createdAt: new Date(),
+        });
+      } else if (type === 'error') {
+        success = await emailService.sendErrorAlert(to, {
+          message: 'Test error message',
+          endpoint: '/api/v1/test',
+          timestamp: new Date(),
+        });
+      } else {
+        success = await emailService.sendDailySummary(to, {
+          date: new Date().toLocaleDateString('en-GB'),
+          totalOrders: 15,
+          totalRevenue: 234.50,
+          topItems: [
+            { name: 'Mici Pork/Beef', count: 25 },
+            { name: 'BUNDLE Mici and chips', count: 12 },
+          ],
+        });
+      }
+
+      return res.json({ success, type, to });
+    } catch (error: any) {
+      console.error('[Admin] Email test failed:', error.message);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 }
