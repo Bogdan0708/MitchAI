@@ -21,6 +21,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.14.0",
     "@aws-sdk/client-s3": "^3.946.0",
+    "@aws-sdk/client-ses": "^3.985.0",
     "@aws-sdk/s3-request-presigner": "^3.946.0",
     "@json2csv/plainjs": "^7.0.6",
     "@sendgrid/mail": "^8.1.0",
