@@ -110,5 +110,6 @@
         }
       }
     }
-  ]
+  ],
+  "taskRoleArn": "arn:aws:iam::337270123670:role/mitch-api-task-role"
 }
