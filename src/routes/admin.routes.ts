@@ -7,6 +7,7 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { Pool } from 'pg';
+import bcrypt from 'bcryptjs';
 
 // Admin authentication middleware
 function adminAuth(req: Request, res: Response, next: NextFunction) {
@@ -24,6 +25,98 @@ export function createAdminRouter(pool: Pool): Router {
   
   // Apply admin auth to all routes
   router.use(adminAuth);
+
+  /**
+   * POST /admin/tenant/create
+   * Create a new tenant with admin user
+   */
+  router.post('/tenant/create', async (req: Request, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const { 
+        name, 
+        slug, 
+        email, 
+        tier = 'enterprise',
+        settings = {},
+        admin 
+      } = req.body;
+
+      if (!name || !slug || !email) {
+        return res.status(400).json({ error: 'name, slug, and email are required' });
+      }
+
+      if (!admin?.email || !admin?.password) {
+        return res.status(400).json({ error: 'admin.email and admin.password are required' });
+      }
+
+      await client.query('BEGIN');
+
+      // Get tier ID
+      const tierResult = await client.query(
+        `SELECT id FROM pricing_tiers WHERE name = $1`,
+        [tier]
+      );
+      const tierId = tierResult.rows[0]?.id || 3;
+
+      // Create tenant
+      const tenantResult = await client.query(`
+        INSERT INTO tenants (name, slug, email, tier_id, status, settings)
+        VALUES ($1, $2, $3, $4, 'active', $5)
+        ON CONFLICT (slug) DO UPDATE SET
+          name = EXCLUDED.name,
+          tier_id = EXCLUDED.tier_id,
+          status = 'active',
+          settings = EXCLUDED.settings,
+          updated_at = NOW()
+        RETURNING id, name, slug
+      `, [name, slug, email, tierId, JSON.stringify(settings)]);
+
+      const tenant = tenantResult.rows[0];
+
+      // Hash password and create admin user
+      const passwordHash = await bcrypt.hash(admin.password, 12);
+      await client.query(`
+        INSERT INTO tenant_users (tenant_id, email, password_hash, first_name, last_name, role, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, true)
+        ON CONFLICT (tenant_id, email) DO UPDATE SET
+          password_hash = EXCLUDED.password_hash,
+          first_name = EXCLUDED.first_name,
+          last_name = EXCLUDED.last_name,
+          role = EXCLUDED.role,
+          is_active = true
+      `, [tenant.id, admin.email, passwordHash, admin.firstName || 'Admin', admin.lastName || '', admin.role || 'owner']);
+
+      // Create default location if provided
+      if (req.body.location) {
+        await client.query(`
+          INSERT INTO locations (tenant_id, name, address, city, country, is_active)
+          VALUES ($1, $2, $3, $4, $5, true)
+          ON CONFLICT DO NOTHING
+        `, [tenant.id, req.body.location.name || name, req.body.location.address, req.body.location.city, req.body.location.country || 'GB']);
+      }
+
+      await client.query('COMMIT');
+
+      return res.json({
+        success: true,
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug
+        },
+        admin: {
+          email: admin.email
+        }
+      });
+    } catch (error: any) {
+      await client.query('ROLLBACK');
+      console.error('[Admin] Tenant creation failed:', error.message);
+      return res.status(500).json({ error: error.message });
+    } finally {
+      client.release();
+    }
+  });
 
   /**
    * POST /admin/tenant/upgrade
