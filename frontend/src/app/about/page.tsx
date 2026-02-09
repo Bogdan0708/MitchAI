@@ -52,14 +52,16 @@ const team = [
   {
     name: 'Bogdan Godja',
     role: 'Founder & CEO',
-    bio: '10+ years leading hospitality operations at London\'s finest venues including 108 Brasserie and London Business School. Achieved 98% online sales growth at Fuller\'s. Built Mitch to solve the problems he faced daily.',
+    bio: 'Restaurant Manager at 108 Brasserie, Marylebone Hotel. 10+ years leading hospitality operations across London—from London Business School (1,000+ guests daily) to Fuller\'s (98% online sales growth). Founder of Mitch from Transylvania street food and creator of the Mitch AI platform. MSc from Babeș-Bolyai University. WSET certified. Fluent in English and Romanian.',
     image: null,
+    achievements: ['🏆 #1 Fuller\'s Network - App Innovation', '📈 98% Online Sales Growth', '👥 Teams up to 50 people', '🌍 Led EU-funded heritage projects'],
   },
   {
     name: 'Ava Manghi',
     role: 'Co-Founder & Operations',
     bio: 'Luxury hospitality specialist currently at Corinthia Hotel London, previously The Savoy. Expert in cross-functional coordination and VIP guest experiences. Trilingual in English, French, and Italian.',
     image: null,
+    achievements: null,
   },
 ]
 
@@ -224,7 +226,7 @@ export default function AboutPage() {
             <p className="text-muted-foreground">The people behind Mitch</p>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {team.map((member) => (
               <Card key={member.name} className="text-center">
                 <CardContent className="p-6">
@@ -233,7 +235,16 @@ export default function AboutPage() {
                   </div>
                   <h3 className="text-lg font-semibold">{member.name}</h3>
                   <p className="text-sm text-primary mb-2">{member.role}</p>
-                  <p className="text-sm text-muted-foreground">{member.bio}</p>
+                  <p className="text-sm text-muted-foreground mb-4">{member.bio}</p>
+                  {member.achievements && (
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {member.achievements.map((achievement, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {achievement}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
