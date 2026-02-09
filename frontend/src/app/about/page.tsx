@@ -35,28 +35,32 @@ const values = [
 ]
 
 const milestones = [
-  { year: '2023', title: 'Founded', description: 'Started in London with a vision to democratize AI for restaurants' },
-  { year: '2024', title: 'First 100 Restaurants', description: 'Reached our first major milestone with restaurants across the UK' },
-  { year: '2024', title: 'Square Partnership', description: 'Official integration partner with Square POS' },
-  { year: '2025', title: 'Enterprise Launch', description: 'Launched enterprise features for restaurant groups' },
+  { year: '2024', title: 'The Idea', description: 'Born from real frustrations managing restaurants in London' },
+  { year: '2025', title: 'Mitch Launches', description: 'Platform goes live with AI reviews, chatbot, and menu enhancement' },
+  { year: '2025', title: 'Square Integration', description: 'Full POS integration for seamless menu and order sync' },
+  { year: '2025', title: 'Growing', description: 'Expanding across the UK hospitality sector' },
 ]
 
 const stats = [
-  { value: '500+', label: 'Restaurants served' },
-  { value: '2M+', label: 'AI responses generated' },
-  { value: '50,000+', label: 'Hours saved' },
-  { value: '4.8', label: 'Average rating' },
+  { value: '20+', label: 'Years hospitality experience' },
+  { value: '6', label: 'AI-powered features' },
+  { value: '24/7', label: 'Platform availability' },
+  { value: 'London', label: 'Based & built' },
 ]
 
-// Placeholder team - update with real team info
 const team = [
   {
-    name: 'Bogdan',
+    name: 'Bogdan Godja',
     role: 'Founder & CEO',
-    bio: 'Former restaurant manager with 10+ years in hospitality. Started Mitch to solve problems he faced daily.',
-    image: null, // Add image path when available
+    bio: '10+ years leading hospitality operations at London\'s finest venues including 108 Brasserie and London Business School. Achieved 98% online sales growth at Fuller\'s. Built Mitch to solve the problems he faced daily.',
+    image: null,
   },
-  // Add more team members as needed
+  {
+    name: 'Ava Manghi',
+    role: 'Co-Founder & Operations',
+    bio: 'Luxury hospitality specialist currently at Corinthia Hotel London, previously The Savoy. Expert in cross-functional coordination and VIP guest experiences. Trilingual in English, French, and Italian.',
+    image: null,
+  },
 ]
 
 // ============================================================================
@@ -124,38 +128,37 @@ export default function AboutPage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <div className="prose prose-lg dark:prose-invert mx-auto">
-            <h2>The Problem We Saw</h2>
+            <h2>The Problem We Lived</h2>
             <p>
-              In 2023, we watched large restaurant chains deploy sophisticated AI systems—
-              chatbots that answered customer questions instantly, tools that generated 
-              perfect review responses, analytics that predicted busy periods with uncanny accuracy.
+              After a decade managing restaurants across London—from the 108 Brasserie to 
+              London Business School events—we knew the pain firsthand. Replying to Google 
+              reviews at midnight. Missing customer questions over the weekend. Spending 
+              hours on menu descriptions that still didn't quite capture the dish.
             </p>
             <p>
-              Meanwhile, independent restaurants—the soul of the hospitality industry—were 
-              stuck doing everything manually. Writing review responses at midnight. Missing 
-              customer inquiries on weekends. Flying blind without data.
+              We watched large chains deploy AI systems while independent restaurants—the 
+              heart of our industry—were left behind. The same technology that could save 
+              hours every week was locked behind enterprise contracts and tech teams.
             </p>
             <p>
-              <strong>That didn't sit right with us.</strong>
+              <strong>That had to change.</strong>
             </p>
             <p>
-              The best restaurants aren't always the biggest. They're the ones run by 
-              passionate people who put their heart into every dish. Those restaurants 
-              deserved access to the same powerful tools as the chains—without needing 
-              a tech team or enterprise budget.
+              The best restaurants aren't always the biggest. They're run by passionate 
+              people who put their heart into every plate. Those restaurants deserve 
+              the same powerful tools—without the enterprise price tag.
             </p>
             
             <h2>Our Solution</h2>
             <p>
-              So we built Mitch: an AI platform designed specifically for independent 
-              restaurants and small chains. Not a watered-down version of enterprise 
-              software, but purpose-built tools that solve real problems restaurant 
-              owners face every day.
+              So we built Mitch: AI tools designed by hospitality people, for hospitality 
+              people. Not a watered-down version of enterprise software, but purpose-built 
+              features that solve real problems we faced ourselves.
             </p>
             <p>
               The name? <strong>"Mitch from Transylvania"</strong> started as a Romanian 
-              street food concept, and we kept the name as a reminder of our roots. 
-              We're not Silicon Valley—we're hospitality people who happen to build technology.
+              street food concept—a nod to our roots. We kept it as a reminder that we're 
+              not Silicon Valley. We're restaurant people who happen to build technology.
             </p>
           </div>
         </div>
@@ -221,7 +224,7 @@ export default function AboutPage() {
             <p className="text-muted-foreground">The people behind Mitch</p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8 max-w-3xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
             {team.map((member) => (
               <Card key={member.name} className="text-center">
                 <CardContent className="p-6">
