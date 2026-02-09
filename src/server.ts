@@ -192,10 +192,46 @@ app.get('/ready', async (_req: Request, res: Response) => {
 // MIDDLEWARE
 // ============================================================================
 
-// Security headers
+// Security headers - comprehensive protection
 app.use(helmet({
-  contentSecurityPolicy: config.nodeEnv === 'production',
-  crossOriginEmbedderPolicy: config.nodeEnv === 'production'
+  // Content Security Policy - strict for API server
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      frameAncestors: ["'none'"], // Prevent clickjacking
+      formAction: ["'self'"],
+      upgradeInsecureRequests: config.nodeEnv === 'production' ? [] : null,
+    },
+  },
+  // Cross-Origin policies
+  crossOriginEmbedderPolicy: config.nodeEnv === 'production',
+  crossOriginOpenerPolicy: { policy: "same-origin" },
+  crossOriginResourcePolicy: { policy: "same-origin" },
+  // HSTS - force HTTPS for 1 year
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  },
+  // Prevent MIME type sniffing
+  noSniff: true,
+  // XSS filter (legacy browsers)
+  xssFilter: true,
+  // Hide X-Powered-By header
+  hidePoweredBy: true,
+  // Referrer policy
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  // DNS prefetch control
+  dnsPrefetchControl: { allow: false },
+  // Don't cache sensitive responses
+  permittedCrossDomainPolicies: { permittedPolicies: "none" },
 }));
 
 // CORS - Strict configuration to prevent CSRF attacks
