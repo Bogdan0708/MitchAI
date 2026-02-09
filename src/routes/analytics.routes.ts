@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { Pool } from 'pg';
 import Redis from 'ioredis';
-import { apiResponse } from '../middleware/error.middleware';
+import { apiResponse } from '../lib/api-response';
 
 // Redis client singleton
 let redis: Redis | null = null;
