@@ -40,7 +40,7 @@ export function createAnalyticsRouter(pool: Pool): Router {
   // Get full analytics data - OPTIMIZED with parallel queries and caching
   router.get('/', async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId;
+      const tenantId = (req as any).tenant?.tenantId;
       const period = (req.query.period as string) || '30d';
       const cacheKey = `analytics:${tenantId}:${period}`;
       
@@ -219,7 +219,7 @@ export function createAnalyticsRouter(pool: Pool): Router {
   // Get AI-powered insights - cached for 10 minutes
   router.get('/insights', async (req: Request, res: Response) => {
     try {
-      const tenantId = (req as any).tenantId;
+      const tenantId = (req as any).tenant?.tenantId;
       const cacheKey = `analytics:insights:${tenantId}`;
       
       const data = await getCached(cacheKey, 600, async () => {
