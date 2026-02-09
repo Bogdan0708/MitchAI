@@ -80,7 +80,7 @@ export function createTwoFARouter(pool: Pool): Router {
           entityId: userId,
           metadata: { action: '2fa_setup_initiated' },
         });
-      } catch {}
+      } catch { /* audit log error ignored */ }
 
       return apiResponse.success(res, {
         qr_code: setup.qrCodeDataUrl,
@@ -117,7 +117,7 @@ export function createTwoFARouter(pool: Pool): Router {
           entityId: userId,
           metadata: { action: '2fa_enabled' },
         });
-      } catch {}
+      } catch { /* audit log error ignored */ }
 
       return apiResponse.success(res, {
         message: '2FA has been enabled successfully',
@@ -170,7 +170,7 @@ export function createTwoFARouter(pool: Pool): Router {
           entityId: userId,
           metadata: { action: '2fa_disabled' },
         });
-      } catch {}
+      } catch { /* audit log error ignored */ }
 
       return apiResponse.success(res, {
         message: '2FA has been disabled',
@@ -208,7 +208,7 @@ export function createTwoFARouter(pool: Pool): Router {
           entityId: userId,
           metadata: { action: '2fa_backup_codes_regenerated' },
         });
-      } catch {}
+      } catch { /* audit log error ignored */ }
 
       return apiResponse.success(res, {
         backup_codes: backupCodes,
