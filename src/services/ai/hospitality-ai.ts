@@ -310,7 +310,7 @@ Return as JSON array matching the order.`;
       content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
       
       // Try to find JSON array
-      let jsonMatch = content.match(/\[[\s\S]*\]/);
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
       let parsed: any[];
       
       if (jsonMatch) {
