@@ -13,7 +13,8 @@ function getRedis(): Redis | null {
     redis = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });
     redis.connect().catch(() => { redis = null; });
     return redis;
-  } catch { 
+  } catch {
+    // Redis connection failed, continue without cache
     return null; 
   }
 }
@@ -24,11 +25,11 @@ async function getCached<T>(key: string, ttlSeconds: number, fetcher: () => Prom
     try {
       const cached = await r.get(key);
       if (cached) return JSON.parse(cached);
-    } catch {}
+    } catch { /* ignore cache errors */ }
   }
   const data = await fetcher();
   if (r) {
-    try { await r.setex(key, ttlSeconds, JSON.stringify(data)); } catch {}
+    try { await r.setex(key, ttlSeconds, JSON.stringify(data)); } catch { /* ignore cache errors */ }
   }
   return data;
 }
