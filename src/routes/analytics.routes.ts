@@ -132,7 +132,7 @@ export function createAnalyticsRouter(pool: Pool): Router {
               COUNT(*) FILTER (WHERE sentiment = 'positive')::int as positive,
               COUNT(*) FILTER (WHERE sentiment = 'neutral')::int as neutral,
               COUNT(*) FILTER (WHERE sentiment = 'negative')::int as negative,
-              COALESCE(ROUND(COUNT(*) FILTER (WHERE response IS NOT NULL)::numeric / NULLIF(COUNT(*), 0) * 100), 0)::int as response_rate
+              COALESCE(ROUND(COUNT(*) FILTER (WHERE response_text IS NOT NULL)::numeric / NULLIF(COUNT(*), 0) * 100), 0)::int as response_rate
             FROM reviews 
             WHERE tenant_id = $1 AND created_at >= $2
           `, [tenantId, startDate]),
@@ -248,7 +248,7 @@ export function createAnalyticsRouter(pool: Pool): Router {
           pool.query(`
             SELECT COUNT(*)::int as count FROM reviews 
             WHERE tenant_id = $1 AND created_at >= NOW() - INTERVAL '7 days' 
-              AND sentiment = 'negative' AND response IS NULL
+              AND sentiment = 'negative' AND response_text IS NULL
           `, [tenantId]),
 
           // Peak hour
