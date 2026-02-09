@@ -53,6 +53,8 @@ export function createAnalyticsRouter(pool: Pool): Router {
         const prevStartDate = new Date(startDate);
         prevStartDate.setDate(prevStartDate.getDate() - days);
 
+        console.log('[Analytics] Query params:', { tenantId, days, startDate: startDate.toISOString() });
+        
         // Run all queries in parallel for speed
         const [
           metricsResult,
@@ -155,6 +157,9 @@ export function createAnalyticsRouter(pool: Pool): Router {
         const prevMetrics = prevMetricsResult.rows[0];
         const reviewStats = reviewStatsResult.rows[0];
         const aiStats = aiStatsResult.rows[0];
+        
+        console.log('[Analytics] Metrics result:', metrics);
+        console.log('[Analytics] Top items:', topItemsResult.rows.length);
 
         return {
           metrics: {
