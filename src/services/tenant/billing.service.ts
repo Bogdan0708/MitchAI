@@ -189,6 +189,7 @@ export class BillingService {
     }
 
     // Create checkout session
+    // Always collect payment method, even for trials
     const session = await this.stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
@@ -206,8 +207,12 @@ export class BillingService {
         metadata: {
           tenantId,
           tier
-        }
+        },
+        // 14-day free trial - card required upfront
+        trial_period_days: 14
       },
+      // Always collect payment method, even during trial
+      payment_method_collection: 'always',
       allow_promotion_codes: true,
       billing_address_collection: 'auto'
     });
