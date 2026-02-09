@@ -77,8 +77,8 @@ const PLANS = [
   {
     id: 'enterprise' as const,
     name: 'Enterprise',
-    priceMonthly: 399,
-    priceYearly: 3990,
+    priceMonthly: 499,
+    priceYearly: 4990,
     description: 'For restaurant groups and franchises',
     features: [
       'Everything in Professional',
