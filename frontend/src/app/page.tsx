@@ -193,9 +193,10 @@ export default function HomePage() {
               <span className="font-bold text-xl text-foreground">Mitch AI</span>
             </div>
             <div className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-muted-foreground hover:text-foreground font-medium">Features</a>
-              <a href="#pricing" className="text-muted-foreground hover:text-foreground font-medium">Pricing</a>
-              <a href="#testimonials" className="text-muted-foreground hover:text-foreground font-medium">Testimonials</a>
+              <Link href="/features" className="text-muted-foreground hover:text-foreground font-medium">Features</Link>
+              <Link href="/pricing" className="text-muted-foreground hover:text-foreground font-medium">Pricing</Link>
+              <Link href="/about" className="text-muted-foreground hover:text-foreground font-medium">About</Link>
+              <Link href="/contact" className="text-muted-foreground hover:text-foreground font-medium">Contact</Link>
             </div>
             <div className="flex items-center gap-4">
               <Link href="/login" className="text-muted-foreground hover:text-foreground font-medium">

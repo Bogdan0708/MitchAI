@@ -19,8 +19,8 @@ const contactMethods = [
     icon: Mail,
     title: 'Email Us',
     description: 'For general inquiries and support',
-    contact: 'hello@mitchfromtransylvania.com',
-    action: 'mailto:hello@mitchfromtransylvania.com',
+    contact: 'vbgsolitionlimited@gmail.com',
+    action: 'mailto:vbgsolitionlimited@gmail.com',
   },
   {
     icon: MessageSquare,
@@ -33,8 +33,8 @@ const contactMethods = [
     icon: Phone,
     title: 'Call Us',
     description: 'Speak with our sales team',
-    contact: '+44 20 XXXX XXXX', // Placeholder
-    action: 'tel:+442000000000',
+    contact: '+44 7471 060258',
+    action: 'tel:+447471060258',
   },
 ]
 
