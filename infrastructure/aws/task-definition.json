@@ -80,6 +80,22 @@
           "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/stripe-secret-key-RGyrPD"
         },
         {
+          "name": "STRIPE_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/stripe-webhook-secret-9cfnwP"
+        },
+        {
+          "name": "STRIPE_PRICE_STARTER_MONTHLY",
+          "value": "price_1SytrfLwJisplivCtM3o0kdU"
+        },
+        {
+          "name": "STRIPE_PRICE_PRO_MONTHLY",
+          "value": "price_1SytxkLwJisplivCSiqx9VJ0"
+        },
+        {
+          "name": "STRIPE_PRICE_ENTERPRISE_MONTHLY",
+          "value": "price_1Syu6WLwJisplivCnnWOYBDw"
+        },
+        {
           "name": "OPENAI_API_KEY",
           "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/openai-api-key-Wy16ba"
         },
