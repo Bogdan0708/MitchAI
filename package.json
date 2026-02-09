@@ -50,7 +50,7 @@
     "qrcode": "^1.5.4",
     "redis": "^4.6.12",
     "speakeasy": "^2.0.0",
-    "stripe": "^20.0.0",
+    "stripe": "^20.3.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^9.0.1",
