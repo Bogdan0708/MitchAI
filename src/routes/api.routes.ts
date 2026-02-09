@@ -1176,9 +1176,15 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
         );
       }
 
+      // Return in format frontend expects
       res.json({
-        menuItemId: req.params.id,
-        enhancements
+        data: {
+          id: req.params.id,
+          description: enhancements.aiDescription || item.description,
+          aiDescription: enhancements.aiDescription,
+          allergens: enhancements.allergens,
+          translations: enhancements.translations,
+        }
       });
     } catch (error) {
       console.error('Menu AI enhance error:', error);
