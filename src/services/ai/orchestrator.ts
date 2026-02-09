@@ -47,11 +47,11 @@ const CACHE_CONFIG = {
 // ============================================================================
 
 const TOKEN_LIMITS: Record<AITaskType, { maxInput: number; maxOutput: number }> = {
-  sentiment: { maxInput: 500, maxOutput: 20 },      // Just "positive/negative/neutral"
+  sentiment: { maxInput: 2000, maxOutput: 500 },    // JSON with scores/keywords per text
   summary: { maxInput: 4000, maxOutput: 300 },      // Condensed output
   translation: { maxInput: 2000, maxOutput: 2500 }, // Might expand slightly
-  menu_description: { maxInput: 300, maxOutput: 100 }, // Short, punchy descriptions
-  review_response: { maxInput: 1000, maxOutput: 200 }, // Concise responses
+  menu_description: { maxInput: 300, maxOutput: 150 }, // Short, punchy descriptions
+  review_response: { maxInput: 1000, maxOutput: 300 }, // Professional responses
   chat: { maxInput: 4000, maxOutput: 1000 },        // Conversational
   content: { maxInput: 2000, maxOutput: 500 },      // Marketing copy
   code: { maxInput: 8000, maxOutput: 2000 },        // Code can be longer

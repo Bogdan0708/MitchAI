@@ -326,11 +326,13 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
 
       // Get user and tenant info
       const userResult = await pool.query(
-        `SELECT id, email, first_name, last_name, role FROM tenant_users WHERE id = $1 AND tenant_id = $2`,
+        `SELECT tu.id, tu.email, tu.first_name, tu.last_name, tu.role 
+         FROM tenant_users tu WHERE tu.id = $1 AND tu.tenant_id = $2`,
         [userId, tenantId]
       );
       const tenantResult = await pool.query(
-        `SELECT id, name, slug, pt.name as tier FROM tenants t JOIN pricing_tiers pt ON t.tier_id = pt.id WHERE t.id = $1`,
+        `SELECT t.id, t.name, t.slug, pt.name as tier 
+         FROM tenants t JOIN pricing_tiers pt ON t.tier_id = pt.id WHERE t.id = $1`,
         [tenantId]
       );
 
