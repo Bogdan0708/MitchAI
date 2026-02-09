@@ -312,6 +312,88 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   });
 
   // ============================================================================
+  // AUTH REFRESH & LOGOUT (Protected, requires valid token)
+  // ============================================================================
+
+  /**
+   * POST /auth/refresh
+   * Refresh access token (extend session)
+   */
+  router.post('/auth/refresh', tenantMiddleware.authenticate, async (req, res) => {
+    try {
+      const userId = req.tenant!.userId;
+      const tenantId = req.tenant!.tenantId;
+
+      // Get user and tenant info
+      const userResult = await pool.query(
+        `SELECT id, email, first_name, last_name, role FROM tenant_users WHERE id = $1 AND tenant_id = $2`,
+        [userId, tenantId]
+      );
+      const tenantResult = await pool.query(
+        `SELECT id, name, slug, pt.name as tier FROM tenants t JOIN pricing_tiers pt ON t.tier_id = pt.id WHERE t.id = $1`,
+        [tenantId]
+      );
+
+      if (userResult.rows.length === 0 || tenantResult.rows.length === 0) {
+        return res.status(401).json({ error: 'Invalid session' });
+      }
+
+      const user = userResult.rows[0];
+      const tenant = tenantResult.rows[0];
+
+      // Generate new token
+      const jwt = require('jsonwebtoken');
+      const newToken = jwt.sign(
+        {
+          sub: user.id,
+          tenant_id: tenant.id,
+          tenant_slug: tenant.slug,
+          email: user.email,
+          role: user.role,
+        },
+        jwtSecret,
+        { expiresIn: '7d' }
+      );
+
+      res.json({
+        success: true,
+        data: {
+          token: newToken,
+          expiresIn: '7d',
+        },
+      });
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      res.status(500).json({ error: 'Failed to refresh token' });
+    }
+  });
+
+  /**
+   * POST /auth/logout
+   * Logout (client should discard token; server-side blacklisting can be added)
+   */
+  router.post('/auth/logout', tenantMiddleware.authenticate, async (req, res) => {
+    try {
+      // Update last activity
+      await pool.query(
+        `UPDATE tenant_users SET last_login_at = NOW() WHERE id = $1 AND tenant_id = $2`,
+        [req.tenant!.userId, req.tenant!.tenantId]
+      );
+
+      // In production, you might want to add token to a Redis blacklist
+      // await redis?.setex(`blacklist:${token}`, 86400 * 7, '1');
+
+      res.json({
+        success: true,
+        message: 'Logged out successfully',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ error: 'Failed to logout' });
+    }
+  });
+
+  // ============================================================================
   // PUBLIC AI STATS (No auth required for monitoring)
   // ============================================================================
 
