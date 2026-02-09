@@ -1,9 +1,6 @@
-# Dependabot configuration
-# Automatically creates PRs to update dependencies with security vulnerabilities
-
 version: 2
 updates:
-  # Backend (root package.json)
+  # Backend dependencies
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -11,28 +8,28 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Europe/London"
-    open-pull-requests-limit: 10
-    commit-message:
-      prefix: "deps"
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "backend"
-    # Group minor/patch updates together
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      # Ignore major version updates for core packages (review manually)
+      - dependency-name: "express"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pg"
+        update-types: ["version-update:semver-major"]
     groups:
       aws-sdk:
         patterns:
           - "@aws-sdk/*"
-      testing:
+      typescript:
         patterns:
-          - "vitest"
-          - "@vitest/*"
-          - "jest"
-          - "@types/jest"
-      types:
-        patterns:
+          - "typescript"
           - "@types/*"
 
-  # Frontend (frontend/package.json)
+  # Frontend dependencies
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
@@ -40,40 +37,26 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Europe/London"
-    open-pull-requests-limit: 10
-    commit-message:
-      prefix: "deps(frontend)"
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "frontend"
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      # Ignore major version updates for Next.js (review manually)
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
     groups:
       react:
         patterns:
           - "react"
           - "react-dom"
-          - "@types/react"
-          - "@types/react-dom"
-      next:
-        patterns:
-          - "next"
-          - "@next/*"
-          - "eslint-config-next"
+          - "@types/react*"
       tanstack:
         patterns:
           - "@tanstack/*"
-      ui:
-        patterns:
-          - "@radix-ui/*"
-          - "tailwindcss"
-          - "@tailwindcss/*"
-
-  # GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "ci"
-    labels:
-      - "ci"
-      - "dependencies"
