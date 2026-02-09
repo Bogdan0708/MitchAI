@@ -355,6 +355,15 @@ export function createAdminRouter(pool: Pool): Router {
         results.push('✅ 2FA migration applied');
       }
 
+      if (!migration || migration === 'business_type' || migration === 'all') {
+        // Add business_type to tenants
+        await pool.query(`
+          ALTER TABLE tenants 
+          ADD COLUMN IF NOT EXISTS business_type VARCHAR(50) DEFAULT 'restaurant'
+        `);
+        results.push('✅ business_type column added to tenants');
+      }
+
       // Verify 2FA columns
       const colsResult = await pool.query(`
         SELECT column_name FROM information_schema.columns 

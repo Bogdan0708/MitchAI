@@ -303,13 +303,33 @@ Return as JSON array matching the order.`;
     }
 
     try {
-      // Parse JSON response
-      const jsonMatch = response.content.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        throw new Error('No JSON array found in response');
+      // Parse JSON response - handle markdown code blocks and various formats
+      let content = response.content;
+      
+      // Remove markdown code blocks if present
+      content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      
+      // Try to find JSON array
+      let jsonMatch = content.match(/\[[\s\S]*\]/);
+      let parsed: any[];
+      
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[0]);
+      } else {
+        // Try to find JSON object and wrap in array
+        const objMatch = content.match(/\{[\s\S]*\}/);
+        if (objMatch) {
+          parsed = [JSON.parse(objMatch[0])];
+        } else {
+          throw new Error('No JSON found in response');
+        }
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      // Ensure parsed is an array
+      if (!Array.isArray(parsed)) {
+        parsed = [parsed];
+      }
+
       const results: SentimentResult[] = request.texts.map((text, i) => ({
         text,
         sentiment: parsed[i]?.sentiment || 'neutral',
@@ -319,6 +339,7 @@ Return as JSON array matching the order.`;
 
       return { success: true, results };
     } catch (error) {
+      console.error('Sentiment parsing error:', error, 'Content:', response.content?.substring(0, 200));
       return { 
         success: false, 
         error: `Failed to parse sentiment response: ${error}` 
