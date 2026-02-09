@@ -40,6 +40,9 @@ import { Badge } from '@/components/ui/badge'
 import { cn, formatTime, formatCurrency } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/auth-context'
+import { toast } from 'sonner'
+import { EmptyState } from '@/components/ui/empty-state'
+import { LoadingPage } from '@/components/ui/loading-spinner'
 
 interface ChatSession {
   id: string
@@ -163,7 +166,7 @@ export default function ChatPage() {
       }
     } catch (err) {
       console.error('Failed to fetch sessions:', err)
-      setError('Failed to load conversations')
+      toast.error('Failed to load conversations')
     } finally {
       setIsLoadingSessions(false)
     }
@@ -285,6 +288,10 @@ export default function ChatPage() {
       return <Badge variant="secondary" className="text-xs">Resolved</Badge>
     }
     return <Badge variant="default" className="text-xs">Active</Badge>
+  }
+
+  if (isLoadingSessions) {
+    return <LoadingPage message="Loading conversations..." />
   }
 
   return (
