@@ -325,5 +325,53 @@ export function createAdminRouter(pool: Pool): Router {
     }
   });
 
+  /**
+   * POST /admin/migrations/run
+   * Run database migrations
+   */
+  router.post('/migrations/run', async (req: Request, res: Response) => {
+    const { migration } = req.body;
+    const results: string[] = [];
+
+    try {
+      if (!migration || migration === '2fa' || migration === 'all') {
+        // 2FA migration
+        await pool.query(`
+          ALTER TABLE tenant_users 
+          ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64),
+          ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN DEFAULT FALSE,
+          ADD COLUMN IF NOT EXISTS totp_enabled_at TIMESTAMPTZ,
+          ADD COLUMN IF NOT EXISTS backup_codes JSONB,
+          ADD COLUMN IF NOT EXISTS pending_totp_secret VARCHAR(64),
+          ADD COLUMN IF NOT EXISTS pending_backup_codes JSONB
+        `);
+        
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS idx_tenant_users_totp_enabled 
+          ON tenant_users(tenant_id, totp_enabled) 
+          WHERE totp_enabled = true
+        `);
+        
+        results.push('✅ 2FA migration applied');
+      }
+
+      // Verify 2FA columns
+      const colsResult = await pool.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'tenant_users' 
+        AND (column_name LIKE '%totp%' OR column_name LIKE '%backup%')
+      `);
+      
+      return res.json({ 
+        success: true, 
+        results,
+        columns: colsResult.rows.map(r => r.column_name)
+      });
+    } catch (error: any) {
+      console.error('[Admin] Migration failed:', error.message);
+      return res.status(500).json({ error: error.message, results });
+    }
+  });
+
   return router;
 }
