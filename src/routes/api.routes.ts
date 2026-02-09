@@ -1443,13 +1443,10 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
         cancelUrl
       );
 
-      return res.json(session);
+      return apiResponse.success(res, session);
     } catch (error) {
       console.error('Create checkout session error:', error);
-      return res.status(500).json({
-        error: 'Failed to create checkout session',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+      return apiResponse.serverError(res, error instanceof Error ? error.message : 'Failed to create checkout session');
     }
   });
 
@@ -1461,8 +1458,7 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       const { returnUrl } = req.body;
 
       if (!returnUrl) {
-        res.status(400).json({ error: 'Missing required field: returnUrl' });
-        return;
+        return apiResponse.badRequest(res, 'Missing required field: returnUrl');
       }
 
       const session = await billingService.createPortalSession(
@@ -1470,13 +1466,10 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
         returnUrl
       );
 
-      res.json(session);
+      return apiResponse.success(res, session);
     } catch (error) {
       console.error('Create portal session error:', error);
-      res.status(500).json({
-        error: 'Failed to create portal session',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+      return apiResponse.serverError(res, error instanceof Error ? error.message : 'Failed to create portal session');
     }
   });
 
