@@ -153,8 +153,9 @@ export default function IntelligencePage() {
     try {
       setIsGenerating(true)
       const response = await api.generateInsights()
-      if (response.data?.insights) {
-        setInsights(prev => [...(response.data?.insights || []), ...prev])
+      const newInsights = response.data?.insights
+      if (newInsights && newInsights.length > 0) {
+        setInsights(prev => [...newInsights, ...prev])
       }
       // Refresh all data after generating
       await fetchData()
