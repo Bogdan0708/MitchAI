@@ -738,6 +738,8 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
 
   // Create menu item (alias for frontend compatibility)
   router.post('/menu/items', validate(createMenuItemSchema), menuController.createMenuItem);
+  router.put('/menu/items/:id', menuController.updateMenuItem);
+  router.delete('/menu/items/:id', menuController.deleteMenuItem);
 
   // Get menu categories
   router.get('/menu/categories', async (req, res) => {

@@ -29,4 +29,32 @@ export class MenuController {
       res.status(500).json({ error: 'Failed to create menu item' });
     }
   };
+
+  public updateMenuItem = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const menuItem = await this.menuService.updateMenuItem(req.tenant!.tenantId, id, req.body);
+      if (!menuItem) {
+        return res.status(404).json({ error: 'Menu item not found' });
+      }
+      res.json({ data: menuItem });
+    } catch (error) {
+      console.error('Update menu item error:', error);
+      res.status(500).json({ error: 'Failed to update menu item' });
+    }
+  };
+
+  public deleteMenuItem = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const deleted = await this.menuService.deleteMenuItem(req.tenant!.tenantId, id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Menu item not found' });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete menu item error:', error);
+      res.status(500).json({ error: 'Failed to delete menu item' });
+    }
+  };
 }
