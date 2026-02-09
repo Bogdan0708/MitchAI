@@ -147,6 +147,24 @@ export default function IntelligencePage() {
     }
   }, [])
 
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  const handleGenerateInsights = async () => {
+    try {
+      setIsGenerating(true)
+      const response = await api.generateInsights()
+      if (response.data?.insights) {
+        setInsights(prev => [...response.data.insights, ...prev])
+      }
+      // Refresh all data after generating
+      await fetchData()
+    } catch (err) {
+      console.error('Failed to generate insights:', err)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   useEffect(() => {
     fetchData()
   }, [fetchData])
@@ -241,9 +259,9 @@ export default function IntelligencePage() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button>
+          <Button onClick={handleGenerateInsights} disabled={isGenerating}>
             <Zap className="h-4 w-4 mr-2" />
-            Generate Insights
+            {isGenerating ? 'Generating...' : 'Generate Insights'}
           </Button>
         </div>
       </div>
