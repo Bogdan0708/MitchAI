@@ -80,4 +80,74 @@ export class MenuService {
       return result.rows[0];
     });
   }
+
+  public async updateMenuItem(tenantId: string, itemId: string, data: any) {
+    return runInTenantContext(this.pool, tenantId, async (client) => {
+      // Build dynamic update query based on provided fields
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      const fieldMappings: Record<string, string> = {
+        name: 'name',
+        description: 'description',
+        price: 'price',
+        categoryId: 'category_id',
+        category_id: 'category_id',
+        sku: 'sku',
+        isAvailable: 'is_available',
+        is_available: 'is_available',
+        stockQuantity: 'stock_quantity',
+        stock_quantity: 'stock_quantity',
+        calories: 'calories',
+        allergens: 'allergens',
+        imageUrl: 'image_url',
+        image_url: 'image_url',
+        aiDescription: 'ai_description',
+        ai_description: 'ai_description',
+      };
+
+      for (const [key, dbColumn] of Object.entries(fieldMappings)) {
+        if (data[key] !== undefined) {
+          updates.push(`${dbColumn} = $${paramIndex}`);
+          values.push(data[key]);
+          paramIndex++;
+        }
+      }
+
+      if (updates.length === 0) {
+        // No fields to update, just return the existing item
+        const result = await client.query(
+          'SELECT * FROM menu_items WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL',
+          [itemId, tenantId]
+        );
+        return result.rows[0];
+      }
+
+      updates.push('updated_at = NOW()');
+      values.push(itemId, tenantId);
+
+      const result = await client.query(
+        `UPDATE menu_items 
+         SET ${updates.join(', ')}
+         WHERE id = $${paramIndex} AND tenant_id = $${paramIndex + 1} AND deleted_at IS NULL
+         RETURNING *`,
+        values
+      );
+      return result.rows[0];
+    });
+  }
+
+  public async deleteMenuItem(tenantId: string, itemId: string) {
+    return runInTenantContext(this.pool, tenantId, async (client) => {
+      const result = await client.query(
+        `UPDATE menu_items 
+         SET deleted_at = NOW()
+         WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+         RETURNING id`,
+        [itemId, tenantId]
+      );
+      return result.rows.length > 0;
+    });
+  }
 }
