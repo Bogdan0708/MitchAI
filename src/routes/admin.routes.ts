@@ -364,6 +364,38 @@ export function createAdminRouter(pool: Pool): Router {
         results.push('✅ business_type column added to tenants');
       }
 
+      if (!migration || migration === 'credits' || migration === 'all') {
+        // Create credit usage table
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS ai_credit_usage (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            task_type VARCHAR(50) NOT NULL,
+            credits INTEGER NOT NULL DEFAULT 1,
+            metadata JSONB,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          )
+        `);
+        
+        await pool.query(`
+          CREATE INDEX IF NOT EXISTS idx_credit_usage_tenant_month 
+          ON ai_credit_usage (tenant_id, DATE_TRUNC('month', created_at))
+        `);
+        
+        await pool.query(`
+          ALTER TABLE pricing_tiers 
+          ADD COLUMN IF NOT EXISTS monthly_credits INTEGER DEFAULT 500,
+          ADD COLUMN IF NOT EXISTS overage_rate DECIMAL(10,4) DEFAULT 0.02
+        `);
+        
+        // Update existing tiers
+        await pool.query(`UPDATE pricing_tiers SET monthly_credits = 500, overage_rate = 0.02 WHERE name = 'starter'`);
+        await pool.query(`UPDATE pricing_tiers SET monthly_credits = 2000, overage_rate = 0.015 WHERE name = 'professional'`);
+        await pool.query(`UPDATE pricing_tiers SET monthly_credits = 10000, overage_rate = 0.01 WHERE name = 'enterprise'`);
+        
+        results.push('✅ Credit tracking tables and columns added');
+      }
+
       // Verify 2FA columns
       const colsResult = await pool.query(`
         SELECT column_name FROM information_schema.columns 

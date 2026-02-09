@@ -464,6 +464,71 @@ export function createAIRouter(pool: Pool, redis?: Redis): Router {
     }
   });
 
+  /**
+   * GET /ai/credits
+   * Get current credit usage and limits
+   */
+  router.get('/credits', async (req, res) => {
+    try {
+      const tenantId = req.tenant!.tenantId;
+      
+      // Get tenant tier
+      const tierResult = await pool.query(
+        `SELECT pt.name as tier, pt.monthly_credits, pt.overage_rate
+         FROM tenants t 
+         JOIN pricing_tiers pt ON t.tier_id = pt.id 
+         WHERE t.id = $1`,
+        [tenantId]
+      );
+      
+      const tier = tierResult.rows[0]?.tier || 'starter';
+      const monthlyCredits = tierResult.rows[0]?.monthly_credits || 500;
+      const overageRate = parseFloat(tierResult.rows[0]?.overage_rate) || 0.02;
+      
+      // Get current month usage
+      const usageResult = await pool.query(
+        `SELECT 
+           task_type,
+           COALESCE(SUM(credits), 0) as credits
+         FROM ai_credit_usage
+         WHERE tenant_id = $1 
+           AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
+         GROUP BY task_type`,
+        [tenantId]
+      );
+      
+      const breakdown: Record<string, number> = {};
+      let creditsUsed = 0;
+      
+      for (const row of usageResult.rows) {
+        const typeCredits = parseInt(row.credits) || 0;
+        breakdown[row.task_type] = typeCredits;
+        creditsUsed += typeCredits;
+      }
+      
+      const creditsRemaining = Math.max(0, monthlyCredits - creditsUsed);
+      const overageCredits = Math.max(0, creditsUsed - monthlyCredits);
+      const overageCharge = overageCredits * overageRate;
+      const percentUsed = monthlyCredits > 0 ? Math.min((creditsUsed / monthlyCredits) * 100, 100) : 0;
+      
+      return apiResponse.success(res, {
+        tier,
+        period: new Date().toISOString().slice(0, 7),
+        creditsUsed,
+        creditsIncluded: monthlyCredits,
+        creditsRemaining,
+        overageCredits,
+        overageCharge,
+        overageRate,
+        percentUsed,
+        breakdown,
+      });
+    } catch (error) {
+      console.error('Get credits error:', error);
+      return apiResponse.serverError(res, 'Failed to get credit usage');
+    }
+  });
+
   return router;
 }
 

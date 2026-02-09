@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { 
   BarChart3, 
   MessageSquare, 
@@ -15,7 +16,9 @@ import {
   TrendingUp,
   DollarSign,
   Zap,
-  Calendar
+  Calendar,
+  AlertTriangle,
+  CheckCircle
 } from 'lucide-react'
 
 // Cost per action in USD (based on GPT-4o-mini primarily)
@@ -61,6 +64,19 @@ interface UsageData {
   byRequestType: Record<string, { tokens: number; cost: number; count?: number }>
 }
 
+interface CreditData {
+  tier: string
+  period: string
+  creditsUsed: number
+  creditsIncluded: number
+  creditsRemaining: number
+  overageCredits: number
+  overageCharge: number
+  overageRate: number
+  percentUsed: number
+  breakdown: Record<string, number>
+}
+
 interface DailyUsage {
   date: string
   requests: number
@@ -70,13 +86,33 @@ interface DailyUsage {
 
 export default function UsagePage() {
   const [usage, setUsage] = useState<UsageData | null>(null)
+  const [credits, setCredits] = useState<CreditData | null>(null)
   const [dailyUsage, setDailyUsage] = useState<DailyUsage[]>([])
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d')
 
   useEffect(() => {
     fetchUsage()
+    fetchCredits()
   }, [period])
+
+  const fetchCredits = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/ai/credits`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setCredits(data.data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch credits:', error)
+    }
+  }
 
   const fetchUsage = async () => {
     try {
@@ -163,6 +199,71 @@ export default function UsagePage() {
           </TabsList>
         </Tabs>
       </div>
+
+      {/* Credit Usage Alert */}
+      {credits && credits.percentUsed >= 80 && (
+        <Alert variant={credits.percentUsed >= 100 ? 'destructive' : 'default'}>
+          {credits.percentUsed >= 100 ? (
+            <AlertTriangle className="h-4 w-4" />
+          ) : (
+            <Zap className="h-4 w-4" />
+          )}
+          <AlertTitle>
+            {credits.percentUsed >= 100 ? 'Credits Exceeded' : 'Approaching Credit Limit'}
+          </AlertTitle>
+          <AlertDescription>
+            {credits.percentUsed >= 100 
+              ? `You've used ${credits.creditsUsed} of ${credits.creditsIncluded} included credits. Overage charges: £${credits.overageCharge.toFixed(2)}`
+              : `You've used ${credits.percentUsed.toFixed(0)}% of your monthly credits (${credits.creditsUsed}/${credits.creditsIncluded}).`
+            }
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Credit Usage Card - Prominent */}
+      {credits && (
+        <Card className="border-2 border-primary/20 bg-primary/5">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Monthly AI Credits</CardTitle>
+                <CardDescription>
+                  {credits.tier.charAt(0).toUpperCase() + credits.tier.slice(1)} Plan • {credits.period}
+                </CardDescription>
+              </div>
+              <Badge variant={credits.percentUsed >= 100 ? 'destructive' : credits.percentUsed >= 80 ? 'secondary' : 'default'}>
+                {credits.percentUsed >= 100 ? 'Overage' : credits.percentUsed >= 80 ? 'High Usage' : 'Normal'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <span>{credits.creditsUsed.toLocaleString()} / {credits.creditsIncluded.toLocaleString()} credits used</span>
+              <span className="font-medium">{credits.percentUsed.toFixed(1)}%</span>
+            </div>
+            <Progress value={Math.min(credits.percentUsed, 100)} className="h-3" />
+            <div className="grid grid-cols-3 gap-4 pt-2">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-600">{credits.creditsRemaining.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Remaining</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold">{credits.overageCredits.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Overage</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-amber-600">£{credits.overageCharge.toFixed(2)}</p>
+                <p className="text-xs text-muted-foreground">Overage Cost</p>
+              </div>
+            </div>
+            {credits.overageCredits > 0 && (
+              <p className="text-xs text-muted-foreground text-center">
+                Overage rate: £{credits.overageRate}/credit
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

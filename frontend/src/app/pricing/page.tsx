@@ -24,7 +24,8 @@ const plans = [
       locations: '1 location',
       users: '5 team members',
       menuItems: '100 menu items',
-      apiCalls: '10,000 AI requests/mo',
+      aiCredits: '500 AI credits/mo',
+      overageRate: '£0.02/credit overage',
     },
     features: [
       { name: 'AI Review Responder', included: true },
@@ -51,7 +52,8 @@ const plans = [
       locations: '5 locations',
       users: '20 team members',
       menuItems: '500 menu items',
-      apiCalls: '50,000 AI requests/mo',
+      aiCredits: '2,000 AI credits/mo',
+      overageRate: '£0.015/credit overage',
     },
     features: [
       { name: 'AI Review Responder', included: true },
@@ -78,7 +80,8 @@ const plans = [
       locations: 'Unlimited locations',
       users: 'Unlimited team members',
       menuItems: 'Unlimited menu items',
-      apiCalls: '500,000 AI requests/mo',
+      aiCredits: '10,000 AI credits/mo',
+      overageRate: '£0.01/credit overage',
     },
     features: [
       { name: 'AI Review Responder', included: true },
