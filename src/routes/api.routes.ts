@@ -65,6 +65,7 @@ import { createContentRouter } from './content.routes';
 import { createIntelligenceRouter } from './intelligence.routes';
 import { createAIRouter } from './ai.routes';
 import { createIntegrationsRouter } from './integrations.routes';
+import { createAnalyticsRouter } from './analytics.routes';
 import { createAdminRouter } from './admin.routes';
 import { createTwoFARouter } from './twofa.routes';
 
@@ -1858,6 +1859,9 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
 
   // Content Planner Module (TikTok/Social)
   router.use('/content', createContentRouter(pool));
+
+  // Analytics routes
+  router.use('/analytics', createAnalyticsRouter(pool));
 
   // Business Intelligence & Automation Module
   router.use('/intelligence', createIntelligenceRouter(pool));
