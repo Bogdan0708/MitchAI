@@ -106,69 +106,53 @@ Features:
 
 ---
 
-## Remaining Security Work
+## Additional Security Features
 
-### Priority 1: Two-Factor Authentication (2FA)
+### ✅ Two-Factor Authentication (2FA)
 
-**Status:** Not started  
-**Target:** Admin accounts
+**Status:** Implemented  
+**Location:** `src/services/twofa.service.ts`, `src/routes/twofa.routes.ts`
 
-Implementation plan:
-1. Add `totp_secret`, `totp_enabled` columns to `tenant_users`
-2. Install `speakeasy` or `otpauth` package
-3. Create `/auth/2fa/setup` and `/auth/2fa/verify` endpoints
-4. Require 2FA for:
-   - Billing/subscription changes
-   - User role changes
-   - API key management
+Features:
+- TOTP-based authentication (RFC 6238)
+- QR code generation for authenticator apps
+- Backup codes (8 codes, single-use)
+- Password verification required to disable
 
-### Priority 2: GitHub Dependabot
+Endpoints:
+- `GET /api/v1/2fa/status` - Check if 2FA enabled
+- `POST /api/v1/2fa/setup` - Generate QR code + backup codes
+- `POST /api/v1/2fa/verify-setup` - Verify token to enable 2FA
+- `POST /api/v1/2fa/disable` - Disable 2FA (requires password)
+- `POST /api/v1/2fa/backup-codes` - Regenerate backup codes
 
-**Status:** Not configured
+**⚠️ Action Required:** Run migration `003_add_2fa_columns.sql` on production database.
 
-Add `.github/dependabot.yml`:
-```yaml
-version: 2
-updates:
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-  - package-ecosystem: "npm"
-    directory: "/frontend"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-```
+### ✅ GitHub Dependabot
 
-### Priority 3: CI Security Scanning
+**Status:** Configured  
+**Location:** `.github/dependabot.yml`
 
-**Status:** Not configured
+- Weekly updates (Monday 9 AM London time)
+- Backend + Frontend separate configs
+- Groups AWS SDK and TypeScript updates
+- Ignores major version bumps for core packages (manual review)
 
-Add `.github/workflows/security.yml`:
-```yaml
-name: Security Scan
-on: [push, pull_request]
-jobs:
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: npm ci
-      - run: npm audit --audit-level=high
-      - name: Frontend audit
-        run: cd frontend && npm ci && npm audit --audit-level=high
-```
+### ✅ CI Security Scanning
 
-### Priority 4: Database Enhancements
+**Status:** Configured  
+**Location:** `.github/workflows/security.yml`
+
+- NPM audit on push/PR (high severity threshold)
+- CodeQL static analysis (JavaScript/TypeScript)
+- TruffleHog secret scanning
+- Weekly scheduled scan (Sundays)
+
+### Future Database Enhancements
 
 | Item | Status | Priority |
 |------|--------|----------|
-| PII column encryption (AWS KMS) | Not started | Medium |
+| PII column encryption (AWS KMS) | Not started | Low |
 | Connection pooling (PgBouncer) | Not started | Low |
 | Backup restore drills | Not started | Medium |
 
@@ -186,6 +170,7 @@ jobs:
 
 | Date | Change |
 |------|--------|
+| 2026-02-09 | Verified 2FA, Dependabot, CI scanning all implemented |
 | 2026-02-09 | Updated to reflect actual implementation status |
 | 2026-02-08 | Fixed npm vulnerabilities, Next.js CVEs |
 | 2026-02-08 | Added AI rate limiting (3 tiers) |
