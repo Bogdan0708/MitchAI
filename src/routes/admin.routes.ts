@@ -377,9 +377,10 @@ export function createAdminRouter(pool: Pool): Router {
           )
         `);
         
+        // Index on tenant_id and created_at (DATE_TRUNC not allowed in index)
         await pool.query(`
-          CREATE INDEX IF NOT EXISTS idx_credit_usage_tenant_month 
-          ON ai_credit_usage (tenant_id, DATE_TRUNC('month', created_at))
+          CREATE INDEX IF NOT EXISTS idx_credit_usage_tenant_created 
+          ON ai_credit_usage (tenant_id, created_at DESC)
         `);
         
         await pool.query(`
