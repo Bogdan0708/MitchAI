@@ -141,11 +141,11 @@ export function createAnalyticsRouter(pool: Pool): Router {
           pool.query(`
             SELECT 
               COUNT(*)::int as total_requests,
-              COALESCE(SUM(tokens_used), 0)::int as tokens_used,
-              COALESCE(SUM(cost_saved), 0) as cost_saved,
-              COUNT(*) FILTER (WHERE operation = 'review_response')::int as reviews_responded,
-              COUNT(*) FILTER (WHERE operation = 'menu_description')::int as menu_items_enhanced,
-              COUNT(*) FILTER (WHERE operation = 'chat')::int as chat_messages_handled
+              COALESCE(SUM(input_tokens + output_tokens), 0)::int as tokens_used,
+              COALESCE(SUM(cost_usd), 0) as cost_saved,
+              COUNT(*) FILTER (WHERE request_type = 'review_response')::int as reviews_responded,
+              COUNT(*) FILTER (WHERE request_type = 'menu_description')::int as menu_items_enhanced,
+              COUNT(*) FILTER (WHERE request_type = 'chat')::int as chat_messages_handled
             FROM ai_usage 
             WHERE tenant_id = $1 AND created_at >= $2
           `, [tenantId, startDate]),
