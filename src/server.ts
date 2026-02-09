@@ -448,6 +448,14 @@ const ipRateLimiter = new IPRateLimiter(redis, 60000, 300); // 300 requests per 
 app.use(ipRateLimiter.limit);
 
 // ============================================================================
+// AUDIT SERVICE
+// ============================================================================
+
+import { initAuditService } from './services/audit.service';
+const auditService = initAuditService(pool);
+console.log('[AuditService] Initialized');
+
+// ============================================================================
 // ROUTES
 // ============================================================================
 
