@@ -463,7 +463,7 @@ export default function IntelligencePage() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handleMarkAllRead}>Mark All Read</Button>
-              <Button onClick={() => setActiveTab('rules')}>
+              <Button onClick={() => setActiveTab('automations')}>
                 <Settings className="h-4 w-4 mr-2" />
                 Alert Rules
               </Button>
