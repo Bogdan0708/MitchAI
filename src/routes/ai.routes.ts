@@ -152,7 +152,7 @@ export function createAIRouter(pool: Pool, redis?: Redis): Router {
    * Generate an appetizing menu item description
    */
   router.post('/menu-description', 
-    ...(aiRateLimiter ? [aiRateLimiter.standard] : []),
+    ...(aiRateLimiter ? [aiRateLimiter.heavy] : []),
     validate(generateMenuDescriptionSchema), 
     async (req, res) => {
     try {
@@ -268,7 +268,7 @@ export function createAIRouter(pool: Pool, redis?: Redis): Router {
    * Generate marketing content (social posts, emails, promos)
    */
   router.post('/content', 
-    ...(aiRateLimiter ? [aiRateLimiter.standard] : []),
+    ...(aiRateLimiter ? [aiRateLimiter.heavy] : []),
     validate(generateContentSchema), 
     async (req, res) => {
     try {
@@ -406,7 +406,7 @@ export function createAIRouter(pool: Pool, redis?: Redis): Router {
    * General hospitality assistant chat
    */
   router.post('/chat', 
-    ...(aiRateLimiter ? [aiRateLimiter.standard] : []),
+    ...(aiRateLimiter ? [aiRateLimiter.heavy] : []),
     validate(chatSchema), 
     async (req, res) => {
     try {
