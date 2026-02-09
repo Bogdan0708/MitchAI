@@ -313,6 +313,50 @@ class ApiClient {
     })
   }
 
+  // Two-Factor Authentication
+  async get2FAStatus() {
+    return this.request<ApiResponse<{ enabled: boolean }>>('/2fa/status')
+  }
+
+  async setup2FA() {
+    return this.request<ApiResponse<{
+      qr_code: string
+      secret: string
+      backup_codes: string[]
+    }>>('/2fa/setup', {
+      method: 'POST',
+    })
+  }
+
+  async verify2FASetup(token: string) {
+    return this.request<ApiResponse<{ enabled: boolean; message: string }>>('/2fa/verify-setup', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    })
+  }
+
+  async disable2FA(password: string) {
+    return this.request<ApiResponse<{ enabled: boolean; message: string }>>('/2fa/disable', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    })
+  }
+
+  async regenerateBackupCodes(token: string) {
+    return this.request<ApiResponse<{ backup_codes: string[] }>>('/2fa/backup-codes', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    })
+  }
+
+  // Password
+  async changePassword(currentPassword: string, newPassword: string) {
+    return this.request<ApiResponse<{ message: string }>>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    })
+  }
+
   // Onboarding
   async checkSlugAvailability(slug: string) {
     return this.request<ApiResponse<{ available: boolean; suggestions?: string[] }>>(`/onboarding/check-slug?slug=${encodeURIComponent(slug)}`)

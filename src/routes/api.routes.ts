@@ -418,6 +418,64 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
     }
   });
 
+  // Change password
+  router.post('/auth/change-password', async (req, res) => {
+    try {
+      const userId = req.tenant!.userId;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return apiResponse.badRequest(res, 'Current and new password required');
+      }
+
+      // Validate new password
+      if (newPassword.length < 12) {
+        return apiResponse.badRequest(res, 'Password must be at least 12 characters');
+      }
+      if (!/[A-Z]/.test(newPassword)) {
+        return apiResponse.badRequest(res, 'Password must contain uppercase letter');
+      }
+      if (!/[a-z]/.test(newPassword)) {
+        return apiResponse.badRequest(res, 'Password must contain lowercase letter');
+      }
+      if (!/[0-9]/.test(newPassword)) {
+        return apiResponse.badRequest(res, 'Password must contain a number');
+      }
+      if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword)) {
+        return apiResponse.badRequest(res, 'Password must contain special character');
+      }
+
+      // Get current password hash
+      const userResult = await pool.query(
+        'SELECT password_hash FROM tenant_users WHERE id = $1',
+        [userId]
+      );
+
+      if (!userResult.rows[0]) {
+        return apiResponse.notFound(res, 'User not found');
+      }
+
+      // Verify current password
+      const bcrypt = await import('bcryptjs');
+      const isValid = await bcrypt.compare(currentPassword, userResult.rows[0].password_hash);
+      if (!isValid) {
+        return apiResponse.unauthorized(res, 'Current password is incorrect');
+      }
+
+      // Hash new password and update
+      const newHash = await bcrypt.hash(newPassword, 12);
+      await pool.query(
+        'UPDATE tenant_users SET password_hash = $1 WHERE id = $2',
+        [newHash, userId]
+      );
+
+      return apiResponse.success(res, { message: 'Password changed successfully' });
+    } catch (error) {
+      console.error('Change password error:', error);
+      return apiResponse.serverError(res, 'Failed to change password');
+    }
+  });
+
   // ----------------------------------------------------------------------------
   // DASHBOARD STATISTICS
   // ----------------------------------------------------------------------------
