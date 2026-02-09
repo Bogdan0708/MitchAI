@@ -166,6 +166,26 @@ export default function IntelligencePage() {
     }
   }
 
+  const handleMarkAllRead = async () => {
+    try {
+      await api.markAllAlertsRead()
+      setAlerts(prev => prev.map(alert => ({ ...alert, isRead: true })))
+    } catch (err) {
+      console.error('Failed to mark all alerts as read:', err)
+    }
+  }
+
+  const handleResolveAlert = async (alertId: string) => {
+    try {
+      await api.resolveAlert(alertId)
+      setAlerts(prev => prev.map(alert => 
+        alert.id === alertId ? { ...alert, isResolved: true } : alert
+      ))
+    } catch (err) {
+      console.error('Failed to resolve alert:', err)
+    }
+  }
+
   useEffect(() => {
     fetchData()
   }, [fetchData])
@@ -442,8 +462,8 @@ export default function IntelligencePage() {
               <CardDescription>Notifications and warnings from across your business</CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">Mark All Read</Button>
-              <Button>
+              <Button variant="outline" size="sm" onClick={handleMarkAllRead}>Mark All Read</Button>
+              <Button onClick={() => setActiveTab('rules')}>
                 <Settings className="h-4 w-4 mr-2" />
                 Alert Rules
               </Button>
@@ -476,7 +496,7 @@ export default function IntelligencePage() {
                     {alert.isResolved ? (
                       <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" />Resolved</Badge>
                     ) : (
-                      <Button size="sm">Resolve</Button>
+                      <Button size="sm" onClick={() => handleResolveAlert(alert.id)}>Resolve</Button>
                     )}
                   </div>
                 </div>
