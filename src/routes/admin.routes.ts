@@ -397,6 +397,18 @@ export function createAdminRouter(pool: Pool): Router {
         results.push('✅ Credit tracking tables and columns added');
       }
 
+      if (!migration || migration === 'stripe' || migration === 'all') {
+        // Add Stripe columns to tenants
+        await pool.query(`
+          ALTER TABLE tenants 
+          ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(100),
+          ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(100),
+          ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(20) DEFAULT 'active',
+          ADD COLUMN IF NOT EXISTS last_payment_at TIMESTAMPTZ
+        `);
+        results.push('✅ Stripe columns added to tenants');
+      }
+
       // Verify 2FA columns
       const colsResult = await pool.query(`
         SELECT column_name FROM information_schema.columns 
