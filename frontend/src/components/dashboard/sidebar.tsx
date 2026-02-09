@@ -18,6 +18,7 @@ import {
   Plug,
   ClipboardCheck,
   Calendar,
+  Zap,
   Brain,
   Sparkles,
   Bot,
@@ -46,6 +47,7 @@ const navigation = [
   { name: 'Intelligence', href: '/dashboard/intelligence', icon: Brain },
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
   { name: 'Integrations', href: '/dashboard/integrations', icon: Plug },
+  { name: 'AI Usage', href: '/dashboard/usage', icon: Zap },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
