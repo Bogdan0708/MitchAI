@@ -66,6 +66,7 @@ import { createIntelligenceRouter } from './intelligence.routes';
 import { createAIRouter } from './ai.routes';
 import { createIntegrationsRouter } from './integrations.routes';
 import { createAdminRouter } from './admin.routes';
+import { createTwoFARouter } from './twofa.routes';
 
 // Import multi-agent services
 import { AgentService } from '../services/agents/agent.service';
@@ -357,6 +358,9 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
   // Apply tenant middleware and rate limiting to all routes below
   router.use(tenantMiddleware.authenticate);
   router.use(rateLimitMiddleware.limit);
+
+  // Two-Factor Authentication routes
+  router.use('/2fa', createTwoFARouter(pool));
 
   // ----------------------------------------------------------------------------
   // AUTH - CURRENT USER
