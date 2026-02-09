@@ -142,7 +142,7 @@ export default function MenuPage() {
           categoryId: item.categoryId,
           categoryName: item.categoryName || item.category?.name || '',
           isAvailable: item.isAvailable ?? true,
-          aiEnhanced: item.aiEnhanced ?? item.ai_enhanced ?? !!item.ai_description ?? false,
+          aiEnhanced: item.aiEnhanced ?? item.ai_enhanced ?? !!item.ai_description,
           allergens: item.allergens || [],
           detectedAllergens: item.detectedAllergens,
           imageUrl: item.imageUrl || null,
