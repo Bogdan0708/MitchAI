@@ -1398,13 +1398,10 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       const billingService = new BillingService(pool, process.env.STRIPE_SECRET_KEY || '');
 
       const billingInfo = await billingService.getBillingInfo(req.tenant!.tenantId);
-      res.json(billingInfo);
+      return apiResponse.success(res, billingInfo);
     } catch (error) {
       console.error('Get billing info error:', error);
-      res.status(500).json({
-        error: 'Failed to get billing info',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+      return apiResponse.serverError(res, error instanceof Error ? error.message : 'Failed to get billing info');
     }
   });
 
@@ -1414,13 +1411,10 @@ export function createApiRouter(pool: Pool, redis: Redis, jwtSecret: string): Ro
       const billingService = new BillingService(pool, process.env.STRIPE_SECRET_KEY || '');
 
       const tiers = await billingService.getPricingTiers();
-      res.json({ data: tiers });
+      return apiResponse.success(res, tiers);
     } catch (error) {
       console.error('Get pricing tiers error:', error);
-      res.status(500).json({
-        error: 'Failed to get pricing tiers',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+      return apiResponse.serverError(res, error instanceof Error ? error.message : 'Failed to get pricing tiers');
     }
   });
 
