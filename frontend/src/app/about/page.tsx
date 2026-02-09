@@ -59,9 +59,9 @@ const team = [
   {
     name: 'Ava Manghi',
     role: 'Co-Founder & Operations',
-    bio: 'Luxury hospitality specialist currently at Corinthia Hotel London, previously The Savoy. Expert in cross-functional coordination and VIP guest experiences. Trilingual in English, French, and Italian.',
+    bio: 'Operations & Project Coordinator currently at Corinthia Hotel London, previously The Savoy. Expert in VIP guest experience coordination, vendor management, and cross-functional team leadership. Brings thousands of hours of real stakeholder management from London\'s finest luxury hotels. Trilingual in English, French, and Italian.',
     image: null,
-    achievements: null,
+    achievements: ['🏨 Corinthia & The Savoy', '🌍 Trilingual (EN/FR/IT)', '👑 VIP Experience Specialist', '🤝 Cross-functional Coordination'],
   },
 ]
 
