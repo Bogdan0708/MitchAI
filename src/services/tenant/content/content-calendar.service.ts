@@ -237,7 +237,7 @@ export class ContentCalendarService {
                 c.created_at as "createdAt", c.updated_at as "updatedAt",
                 l.name as location_name,
                 camp.name as campaign_name,
-                tu.name as creator_name
+                CONCAT(tu.first_name, ' ', tu.last_name) as creator_name
          FROM content_calendar c
          LEFT JOIN locations l ON c.location_id = l.id
          LEFT JOIN content_campaigns camp ON c.campaign_id = camp.id

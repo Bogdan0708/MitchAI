@@ -134,7 +134,7 @@ export class CorrectiveActionsService {
                 ca.resolved_at as "resolvedAt", ca.resolved_by as "resolvedBy",
                 ca.verification_notes as "verificationNotes",
                 ca.created_at as "createdAt", ca.updated_at as "updatedAt",
-                tu.email as assignee_email, tu.name as assignee_name,
+                tu.email as assignee_email, CONCAT(tu.first_name, ' ', tu.last_name) as assignee_name,
                 l.name as location_name
          FROM corrective_actions ca
          LEFT JOIN tenant_users tu ON ca.assigned_to = tu.id

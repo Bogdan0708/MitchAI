@@ -882,7 +882,17 @@ class ApiClient {
 
   // Content Calendar
   async getContentCalendar(params?: { startDate?: string; endDate?: string; status?: string; platform?: string }) {
-    const query = new URLSearchParams(params as Record<string, string>).toString()
+    // Backend requires start_date and end_date — default to current month
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+    const queryParams: Record<string, string> = {
+      start_date: params?.startDate || startOfMonth,
+      end_date: params?.endDate || endOfMonth,
+      ...(params?.status && { status: params.status }),
+      ...(params?.platform && { platform: params.platform }),
+    }
+    const query = new URLSearchParams(queryParams).toString()
     return this.request<ApiResponse<ContentCalendarItem[]>>(`/content/calendar?${query}`)
   }
 
