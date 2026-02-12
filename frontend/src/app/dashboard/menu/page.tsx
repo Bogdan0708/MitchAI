@@ -263,31 +263,41 @@ export default function MenuPage() {
     setBulkProgress({ current: 0, total: itemsToEnhance.length })
 
     try {
-      const response = await api.bulkEnhanceMenu(
-        itemsToEnhance.map(i => ({
-          id: i.id,
-          name: i.name,
-          category: i.categoryName || i.categoryId,
-          allergens: i.allergens,
-          price: i.price,
-        })),
-        selectedStyle
-      )
+      // Chunk into batches of 20 (backend limit)
+      const BATCH_SIZE = 20
+      const allResults: Array<{ id: string; description: string; success: boolean }> = []
 
-      if (response.data?.results) {
-        const enhancedMap = new Map(
-          response.data.results
-            .filter((r: any) => r.success)
-            .map((r: any) => [r.id, r.description])
+      for (let i = 0; i < itemsToEnhance.length; i += BATCH_SIZE) {
+        const batch = itemsToEnhance.slice(i, i + BATCH_SIZE)
+        const response = await api.bulkEnhanceMenu(
+          batch.map(item => ({
+            id: item.id,
+            name: item.name,
+            category: item.categoryName || item.categoryId,
+            allergens: item.allergens,
+            price: item.price,
+          })),
+          selectedStyle
         )
-        setMenuItems(items =>
-          items.map(item =>
-            enhancedMap.has(item.id)
-              ? { ...item, description: enhancedMap.get(item.id), aiEnhanced: true }
-              : item
-          )
-        )
+
+        if (response.data?.results) {
+          allResults.push(...response.data.results)
+        }
+        setBulkProgress({ current: Math.min(i + BATCH_SIZE, itemsToEnhance.length), total: itemsToEnhance.length })
       }
+
+      const enhancedMap = new Map(
+        allResults
+          .filter((r: any) => r.success)
+          .map((r: any) => [r.id, r.description])
+      )
+      setMenuItems(items =>
+        items.map(item =>
+          enhancedMap.has(item.id)
+            ? { ...item, description: enhancedMap.get(item.id), aiEnhanced: true }
+            : item
+        )
+      )
       setBulkProgress({ current: itemsToEnhance.length, total: itemsToEnhance.length })
     } catch (err) {
       console.error('Failed to bulk enhance:', err)
