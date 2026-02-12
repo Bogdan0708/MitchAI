@@ -26,7 +26,7 @@ export const menuEnhanceSchema = z.object({
     id: z.string().uuid()
   }),
   body: z.object({
-    style: z.enum(['casual', 'fine_dining', 'street_food', 'family']).optional(),
+    style: z.enum(['casual', 'fine_dining', 'street_food', 'family', 'upscale', 'trendy', 'traditional', 'health', 'descriptive']).optional(),
     generateDescription: z.boolean().optional().default(true),
     detectAllergens: z.boolean().optional().default(true),
     suggestPrice: z.boolean().optional().default(false),
@@ -38,7 +38,7 @@ export const menuEnhanceSchema = z.object({
 export const batchMenuEnhanceSchema = z.object({
   body: z.object({
     menuItemIds: z.array(z.string().uuid()).min(1).max(50),
-    style: z.enum(['casual', 'fine_dining', 'street_food', 'family']).optional(),
+    style: z.enum(['casual', 'fine_dining', 'street_food', 'family', 'upscale', 'trendy', 'traditional', 'health', 'descriptive']).optional(),
     generateDescription: z.boolean().optional().default(true),
     detectAllergens: z.boolean().optional().default(true)
   })

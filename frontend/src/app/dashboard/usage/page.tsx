@@ -99,7 +99,7 @@ export default function UsagePage() {
   const fetchCredits = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/ai/credits`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ai/credits`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -117,7 +117,7 @@ export default function UsagePage() {
   const fetchUsage = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/ai/usage?days=${period.replace('d', '')}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ai/usage?days=${period.replace('d', '')}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

@@ -835,7 +835,10 @@ class ApiClient {
 
   // Review Insights
   async getReviewInsightsSummary(period?: 'daily' | 'weekly' | 'monthly') {
-    const query = period ? `?period=${period}` : ''
+    // Map frontend period names to backend-expected values
+    const periodMap: Record<string, string> = { daily: '7d', weekly: '30d', monthly: '90d' }
+    const mapped = period ? periodMap[period] || '30d' : ''
+    const query = mapped ? `?period=${mapped}` : ''
     return this.request<ApiResponse<ReviewInsights>>(`/review-management/insights${query}`)
   }
 
@@ -999,7 +1002,7 @@ class ApiClient {
   // Content Ideas & Trending
   async getContentIdeas(params?: { status?: string; source?: string }) {
     const query = new URLSearchParams(params as Record<string, string>).toString()
-    return this.request<ApiResponse<ContentIdea[]>>(`/content/ideas?${query}`)
+    return this.request<ApiResponse<ContentIdea[]>>(`/content/ai/ideas?${query}`)
   }
 
   async saveContentIdea(id: string) {
@@ -1016,7 +1019,7 @@ class ApiClient {
 
   async getTrendingTopics(params?: { platform?: string; category?: string }) {
     const query = new URLSearchParams(params as Record<string, string>).toString()
-    return this.request<ApiResponse<TrendingTopic[]>>(`/content/trending?${query}`)
+    return this.request<ApiResponse<TrendingTopic[]>>(`/content/ai/trending?${query}`)
   }
 
   // Content Analytics
