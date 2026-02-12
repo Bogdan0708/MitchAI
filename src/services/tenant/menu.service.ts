@@ -110,7 +110,11 @@ export class MenuService {
       for (const [key, dbColumn] of Object.entries(fieldMappings)) {
         if (data[key] !== undefined) {
           updates.push(`${dbColumn} = $${paramIndex}`);
-          values.push(data[key]);
+          // JSONB columns need JSON.stringify for arrays/objects
+          const value = dbColumn === 'allergens' && Array.isArray(data[key])
+            ? JSON.stringify(data[key])
+            : data[key];
+          values.push(value);
           paramIndex++;
         }
       }
