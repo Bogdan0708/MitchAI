@@ -1,153 +1,145 @@
 # Quick Start Guide
 
-Get your multi-tenant hospitality SaaS platform running in 10 minutes.
+This guide starts the checked-in MitchAI prototype locally. It does not connect to or describe a public production service.
 
-## Prerequisites Check
+> **Project status:** MitchAI is a technical portfolio prototype. There is no public production service, API, or SLA. The project is not SOC 2 certified, GDPR has not been independently assessed, and any pricing found in fixtures or UI code is illustrative.
+
+## Prerequisites
+
+- Node.js 20 recommended; CI runs Node.js 20 and `package.json` permits Node.js 18 or newer
+- npm
+- Git
+- Docker with Docker Compose
+
+Check the tools:
 
 ```bash
-# Check Node.js (need 18+)
 node --version
-
-# Check Docker (need 20+)
-docker --version
-
-# Check Docker Compose (need 2.0+)
-docker-compose --version
-
-# Check Git
+npm --version
 git --version
+docker --version
+docker compose version
 ```
 
-## 1. Clone or Setup Project (30 seconds)
+## 1. Clone the repository
 
 ```bash
-# If cloning from Git
-git clone https://github.com/yourusername/hospitality-saas.git
-cd hospitality-saas
-
-# Or if you have the files already
-cd /home/godja/hospitality-saas
+git clone https://github.com/Bogdan0708/MitchAI.git
+cd MitchAI
 ```
 
-## 2. Install Dependencies (1 minute)
+## 2. Install backend dependencies
+
+Use the checked-in lockfile:
 
 ```bash
-npm install
+npm ci
 ```
 
-## 3. Configure Environment (1 minute)
+## 3. Configure the local environment
 
 ```bash
-# Copy environment template
 cp .env.example .env
-
-# Edit with your favorite editor
-nano .env  # or vim, code, etc.
 ```
 
-### Minimum Required Configuration
+Replace every required placeholder in `.env` before starting the API. At minimum, review the PostgreSQL password and connection URL, Redis URL, JWT secret, n8n credentials, Grafana password, and values required by whichever optional providers you intend to exercise. Do not commit local credentials.
 
-```env
-# Database (use defaults for local development)
-DATABASE_URL=postgres://hospitality_admin:changeme@localhost:5432/hospitality_db
+The checked-in Compose configuration maps PostgreSQL to host port `5433` and Redis to host port `6380`, matching `.env.example`.
 
-# Redis (use default)
-REDIS_URL=redis://localhost:6379
-
-# JWT (generate a secure secret)
-JWT_SECRET=your-super-secret-key-min-32-chars-change-this
-
-# Stripe (get from https://stripe.com/docs/keys)
-STRIPE_SECRET_KEY=sk_test_your_test_key_here
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
-
-# AWS S3 (for data exports)
-AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-S3_BUCKET=your-bucket-name
-```
-
-### Quick JWT Secret Generator
+Generate development secrets with a secure random generator, for example:
 
 ```bash
-# Generate a secure 32-character secret
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+openssl rand -hex 32
 ```
 
-## 4. Start Infrastructure (2 minutes)
+Cloud AI, Stripe, email, storage, and similar integrations require their own accounts and configuration. Ollama is optional and expects a separately available Ollama endpoint. n8n is configured as a Compose service, but no n8n workflow definitions are checked into this repository.
+
+## 4. Start local infrastructure
+
+Start the services needed by the backend:
 
 ```bash
-# Start PostgreSQL and Redis
-docker-compose up -d postgres redis
+docker compose up -d postgres redis
 
-# Wait for services to be healthy
-docker-compose ps
+docker compose ps
 ```
 
-You should see:
-```
-NAME                  STATUS
-hospitality-postgres  Up (healthy)
-hospitality-redis     Up (healthy)
+Example `docker compose ps` shape (container IDs, ports, and timing vary):
+
+```text
+NAME                    SERVICE    STATUS
+hospitality-postgres    postgres   Up (healthy)
+hospitality-redis       redis      Up
 ```
 
-## 5. Initialize Database (1 minute)
+Optional configured services can be started explicitly:
 
 ```bash
-# Connect and run schema
-docker exec -i hospitality-postgres psql -U hospitality_admin -d hospitality_db < database/schema.sql
+# Vector database and workflow-automation infrastructure
+docker compose up -d qdrant n8n
 
-# Verify tables created
-docker exec hospitality-postgres psql -U hospitality_admin -d hospitality_db -c "\dt"
+# Optional monitoring profile
+docker compose --profile monitoring up -d grafana
 ```
 
-You should see all tables listed (tenants, orders, menu_items, etc.).
+## 5. Initialize the database
 
-## 6. Start Application (30 seconds)
+For this Compose quick start, database initialization is automatic: the `postgres` service mounts `database/schema.sql` into `/docker-entrypoint-initdb.d/`, and the PostgreSQL image runs it only when creating a new, empty database volume. Do not also run the schema manually against that newly initialized volume.
 
-### Development Mode
+The repository also exposes `npm run db:migrate`. That runner is a separate setup path for an empty database not already initialized by Compose: it executes `database/schema.sql`, then the ordered files under `database/migrations/`, and records them in `schema_migrations`. The current Compose configuration does not run those migration files, and combining both initialization paths against the same database can attempt to create existing schema objects.
+
+Existing Compose volumes are not reinitialized when `database/schema.sql` changes. Review the migration runner and pending SQL migrations before updating an existing database; do not assume restarting the container reapplies them.
+
+Example verification command:
+
+```bash
+docker compose exec postgres \
+  psql -U hospitality_admin -d hospitality_db -c "\dt"
+```
+
+The resulting table list depends on the current schema and database state.
+
+## 6. Start the backend
 
 ```bash
 npm run dev
 ```
 
-You should see:
-```
-==========================================
-  Hospitality SaaS Platform API
-==========================================
-Environment: development
-Server: http://localhost:3000
-API: http://localhost:3000/api/v1
-Database: Connected ✓
-Redis: Connected ✓
-==========================================
+The Express API defaults to `http://localhost:3000` and mounts application routes under `http://localhost:3000/api/v1`.
+
+Example startup output only—the exact messages and connection state vary:
+
+```text
+Server listening on port 3000
+Redis connected successfully
 ```
 
-### Production Mode (Docker)
+## 7. Check local health
+
+Basic process check:
 
 ```bash
-# Build and start everything
-docker-compose up -d
-
-# View logs
-docker-compose logs -f api
+curl http://localhost:3000/ping
 ```
 
-## 7. Test the API (2 minutes)
+Example response:
 
-### Health Check
+```text
+pong
+```
+
+Database and Redis health check:
 
 ```bash
 curl http://localhost:3000/api/v1/health
 ```
 
-Expected response:
+Example response shape only; the timestamp and status reflect the current run:
+
 ```json
 {
   "status": "healthy",
-  "timestamp": "2024-01-15T12:00:00.000Z",
+  "timestamp": "2026-01-01T12:00:00.000Z",
   "services": {
     "database": "up",
     "redis": "up"
@@ -155,419 +147,152 @@ Expected response:
 }
 ```
 
-### Create Your First Tenant
+A degraded or unavailable response means the local dependencies or environment need attention; it is not evidence about a hosted service.
+
+## 8. Start the Next.js frontend
+
+The primary frontend implementation is Next.js/React. In a second terminal, from the repository root:
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/onboard \
-  -H "Content-Type: application/json" \
-  -d '{
-    "businessName": "Test Restaurant",
-    "slug": "test-restaurant",
-    "contactEmail": "owner@test.com",
-    "contactPhone": "+1-555-0123",
-    "adminFirstName": "John",
-    "adminLastName": "Doe",
-    "adminEmail": "john@test.com",
-    "adminPassword": "TestPass123!",
-    "pricingTier": "starter",
-    "timezone": "America/New_York"
-  }'
+cd frontend
+npm ci
+npm run dev -- -p 3001
 ```
 
-Save the `accessToken` from the response!
+Open `http://localhost:3001`. Port 3001 avoids the backend's default port 3000. Configure the frontend API URL for the local backend where required.
 
-### Make Your First API Call
+## Development checks
 
-```bash
-# Set your token
-export TOKEN="your-access-token-from-previous-step"
-
-# Get tenant info
-curl http://localhost:3000/api/v1/tenant \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-## 8. Access Management Tools (Optional)
-
-### Adminer (Database UI)
+From the repository root:
 
 ```bash
-# Start with development profile
-docker-compose --profile development up -d
-
-# Open in browser
-http://localhost:8080
-
-# Login credentials:
-# System: PostgreSQL
-# Server: postgres
-# Username: hospitality_admin
-# Password: changeme
-# Database: hospitality_db
-```
-
-### Grafana (Monitoring)
-
-```bash
-# Start with monitoring profile
-docker-compose --profile monitoring up -d
-
-# Open in browser
-http://localhost:3001
-
-# Login credentials:
-# Username: admin
-# Password: admin (or your GRAFANA_PASSWORD from .env)
-```
-
-## Common Commands
-
-### Development
-
-```bash
-# Start dev server with auto-reload
-npm run dev
-
-# Run tests (after creating test files)
-npm test
-
-# Lint code
+npm run typecheck
 npm run lint
-
-# Build TypeScript
+npm test
 npm run build
+```
 
-# Run production build
+Frontend production build:
+
+```bash
+cd frontend
+npm ci
+npm run build
+```
+
+The repository also defines Playwright frontend E2E scripts. Those tests may require browsers, running services, and suitable test configuration:
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+## Common local commands
+
+### Backend
+
+```bash
+npm run dev
+npm run typecheck
+npm run lint
+npm test
+npm run build
 npm start
 ```
 
-### Docker
+`npm start` runs the previously compiled `dist/server.js`; run `npm run build` first.
+
+### Docker Compose
 
 ```bash
-# View all services
-docker-compose ps
+docker compose ps
+docker compose logs -f postgres redis
+docker compose restart postgres redis
+docker compose down
+```
 
-# View logs
-docker-compose logs -f api
+Removing volumes deletes local database and service data, so it is intentionally not part of the normal quick-start flow.
 
-# Restart a service
-docker-compose restart api
+The existing destructive cleanup command is retained for reference. **WARNING: this permanently deletes the local Compose volumes and their data:**
 
-# Stop all services
-docker-compose down
-
-# Stop and remove volumes (WARNING: deletes data)
+```bash
 docker-compose down -v
 ```
 
-### Database
+### Database and Redis
 
 ```bash
-# Connect to PostgreSQL
-docker exec -it hospitality-postgres psql -U hospitality_admin -d hospitality_db
+# PostgreSQL shell
+docker compose exec postgres \
+  psql -U hospitality_admin -d hospitality_db
 
-# Run a query
-docker exec hospitality-postgres psql -U hospitality_admin -d hospitality_db -c "SELECT COUNT(*) FROM tenants"
+# Redis ping
+docker compose exec redis redis-cli ping
 
-# Backup database
-docker exec hospitality-postgres pg_dump -U hospitality_admin hospitality_db > backup.sql
-
-# Restore database
-docker exec -i hospitality-postgres psql -U hospitality_admin hospitality_db < backup.sql
-```
-
-### Redis
-
-```bash
-# Connect to Redis
-docker exec -it hospitality-redis redis-cli
-
-# Check keys
-docker exec hospitality-redis redis-cli KEYS "*"
-
-# Clear all rate limits
+# WARNING: destructively clear every key in the local Redis database
 docker exec hospitality-redis redis-cli FLUSHDB
 ```
 
 ## Troubleshooting
 
-### Port Already in Use
+### Port already in use
+
+The backend defaults to port 3000. Set a different backend port in `.env`, or start the frontend on another port as shown above.
+
+The existing forced-stop command is retained for reference. Identify the process first; **WARNING: `kill -9` terminates it immediately without graceful cleanup:**
 
 ```bash
-# Check what's using port 3000
 lsof -i :3000
-
-# Kill the process (replace PID)
 kill -9 PID
-
-# Or change the port in .env
-PORT=3001
 ```
 
-### Database Connection Failed
+### Database connection failed
 
 ```bash
-# Check if PostgreSQL is running
-docker-compose ps postgres
-
-# Check logs
-docker-compose logs postgres
-
-# Restart PostgreSQL
-docker-compose restart postgres
-
-# Verify connection
-docker exec hospitality-postgres pg_isready
+docker compose ps postgres
+docker compose logs postgres
+docker compose exec postgres pg_isready -U hospitality_admin
 ```
 
-### Redis Connection Failed
+Confirm `DATABASE_URL` uses host port `5433` when the backend runs directly on the host.
+
+### Redis connection failed
 
 ```bash
-# Check if Redis is running
-docker-compose ps redis
-
-# Check logs
-docker-compose logs redis
-
-# Restart Redis
-docker-compose restart redis
-
-# Test connection
-docker exec hospitality-redis redis-cli ping
+docker compose ps redis
+docker compose logs redis
+docker compose exec redis redis-cli ping
 ```
 
-### Module Not Found Error
+Confirm `REDIS_URL` uses host port `6380` when the backend runs directly on the host.
+
+### TypeScript or dependency errors
+
+Reinstall exactly from the lockfile, then rerun the relevant check:
 
 ```bash
-# Clean install
+npm ci
+npm run typecheck
+npm run build
+```
+
+The existing clean-install command is retained for reference. **WARNING: it deletes installed dependencies and the checked-in lockfile before generating a new lockfile:**
+
+```bash
 rm -rf node_modules package-lock.json
 npm install
 ```
 
-### TypeScript Errors
+## Setup checklist
 
-```bash
-# Rebuild
-npm run build
+- [ ] Node.js 20 is available (Node.js 18 is the declared package minimum)
+- [ ] Repository cloned from `https://github.com/Bogdan0708/MitchAI.git`
+- [ ] Backend dependencies installed with `npm ci`
+- [ ] `.env` created locally and placeholder values reviewed
+- [ ] PostgreSQL and Redis started
+- [ ] Database schema initialized
+- [ ] Backend started and local health endpoint checked
+- [ ] Frontend dependencies installed and Next.js app started if needed
+- [ ] Type check, lint, tests, and builds run for the areas being changed
 
-# Check TypeScript version
-npx tsc --version
-```
-
-## Testing Your Setup
-
-### Complete Test Script
-
-Save as `test-setup.sh`:
-
-```bash
-#!/bin/bash
-
-echo "Testing Hospitality SaaS Setup..."
-echo "=================================="
-
-# 1. Health Check
-echo "1. Checking health endpoint..."
-curl -s http://localhost:3000/api/v1/health | jq .
-
-# 2. Create tenant
-echo "2. Creating test tenant..."
-RESPONSE=$(curl -s -X POST http://localhost:3000/api/v1/onboard \
-  -H "Content-Type: application/json" \
-  -d '{
-    "businessName": "Test Restaurant",
-    "slug": "test-'$(date +%s)'",
-    "contactEmail": "test@example.com",
-    "adminFirstName": "Test",
-    "adminLastName": "User",
-    "adminEmail": "admin@test.com",
-    "adminPassword": "TestPass123!",
-    "pricingTier": "starter"
-  }')
-
-TOKEN=$(echo $RESPONSE | jq -r '.accessToken')
-echo "Token: $TOKEN"
-
-# 3. Get tenant info
-echo "3. Getting tenant info..."
-curl -s http://localhost:3000/api/v1/tenant \
-  -H "Authorization: Bearer $TOKEN" | jq .
-
-# 4. Create location
-echo "4. Creating location..."
-curl -s -X POST http://localhost:3000/api/v1/locations \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Main Location",
-    "slug": "main",
-    "addressLine1": "123 Test St",
-    "city": "Test City",
-    "state": "TS",
-    "postalCode": "12345",
-    "country": "US"
-  }' | jq .
-
-# 5. List locations
-echo "5. Listing locations..."
-curl -s http://localhost:3000/api/v1/locations \
-  -H "Authorization: Bearer $TOKEN" | jq .
-
-echo "=================================="
-echo "Setup test completed!"
-```
-
-Run it:
-```bash
-chmod +x test-setup.sh
-./test-setup.sh
-```
-
-## Next Steps
-
-### 1. Explore the API
-- Read `TESTING.md` for comprehensive API examples
-- Try creating orders, menu items, and reservations
-- Test rate limiting by making many requests
-
-### 2. Set Up Stripe
-- Create a Stripe account at https://stripe.com
-- Get your test API keys
-- Set up webhook endpoint
-- Test subscription creation
-
-### 3. Configure AWS S3
-- Create an S3 bucket
-- Set up IAM credentials
-- Test data export functionality
-
-### 4. Review Documentation
-- `README.md` - Complete feature documentation
-- `ARCHITECTURE.md` - Design decisions and patterns
-- `ARCHITECTURE_DIAGRAM.md` - Visual diagrams
-
-### 5. Deploy to Production
-- Set up a production environment
-- Configure SSL certificates
-- Enable monitoring
-- Set up automated backups
-
-## Development Workflow
-
-### Day-to-Day Development
-
-```bash
-# 1. Start infrastructure (run once)
-docker-compose up -d postgres redis
-
-# 2. Start dev server (auto-reloads on changes)
-npm run dev
-
-# 3. Make changes to code
-
-# 4. Test changes
-curl http://localhost:3000/api/v1/...
-
-# 5. View logs
-tail -f logs/app.log
-```
-
-### Before Committing
-
-```bash
-# Lint code
-npm run lint
-
-# Run tests
-npm test
-
-# Build to check for errors
-npm run build
-```
-
-## Production Deployment
-
-### Quick Production Deploy
-
-```bash
-# 1. Set environment to production
-export NODE_ENV=production
-
-# 2. Build and start
-docker-compose build
-docker-compose up -d
-
-# 3. Scale API servers
-docker-compose up -d --scale api=3
-
-# 4. Enable monitoring
-docker-compose --profile monitoring up -d
-
-# 5. Enable backups
-docker-compose --profile backup up -d
-```
-
-## Getting Help
-
-### Resources
-- **Documentation**: See `README.md` and `ARCHITECTURE.md`
-- **Testing Examples**: See `TESTING.md`
-- **Architecture Diagrams**: See `ARCHITECTURE_DIAGRAM.md`
-- **File Structure**: See `FILE_STRUCTURE.md`
-
-### Check Logs
-```bash
-# API logs
-docker-compose logs -f api
-
-# Database logs
-docker-compose logs -f postgres
-
-# Redis logs
-docker-compose logs -f redis
-
-# All logs
-docker-compose logs -f
-```
-
-### Verify Services
-```bash
-# Check all services
-docker-compose ps
-
-# Check specific service health
-docker-compose exec api node healthcheck.js
-```
-
-## Success Checklist
-
-- [ ] Node.js 18+ installed
-- [ ] Docker and Docker Compose installed
-- [ ] Dependencies installed (`npm install`)
-- [ ] Environment configured (`.env` file)
-- [ ] Infrastructure running (`docker-compose ps` shows healthy)
-- [ ] Database initialized (tables created)
-- [ ] Application started (dev or production)
-- [ ] Health check passes (`/api/v1/health`)
-- [ ] First tenant created successfully
-- [ ] JWT token received
-- [ ] Protected endpoints accessible with token
-
-## You're Ready!
-
-Your multi-tenant SaaS platform is now running. You have:
-
-- Complete database schema with Row-Level Security
-- JWT authentication with tenant context
-- Rate limiting (per-minute and monthly)
-- Stripe integration ready
-- Data export capabilities
-- Docker orchestration
-- Comprehensive API
-
-Start building your hospitality business platform!
-
-For more details, see:
-- API documentation: `README.md`
-- Architecture details: `ARCHITECTURE.md`
-- Testing guide: `TESTING.md`
+For architecture and implemented-scope notes, see [README.md](README.md). For additional API details, see `docs/openapi.yaml` and the route implementations under `src/routes/`.
