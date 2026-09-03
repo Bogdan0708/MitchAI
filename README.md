@@ -81,8 +81,6 @@ Configured local integration infrastructure:
 | AI | Provider orchestration and adapters, including optional Ollama |
 | Testing | Jest/ts-jest backend tests; Playwright configuration/scripts for frontend E2E work |
 
-Python and FastAPI are not part of the primary application implementation in this repository.
-
 ## Quick start
 
 ### Prerequisites
