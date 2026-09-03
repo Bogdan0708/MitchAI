@@ -1,370 +1,204 @@
-# 🦇 Mitch AI Suite - Hospitality SaaS Platform
+# Mitch AI Suite
 
 <div align="center">
 
-![Mitch AI Suite](https://img.shields.io/badge/Mitch-AI%20Suite-red?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyeiIvPjwvc3ZnPg==)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
-![Node.js](https://img.shields.io/badge/Node.js-22-green?style=for-the-badge&logo=node.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)
+![Node.js](https://img.shields.io/badge/Node.js-20-green?style=for-the-badge&logo=node.js)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql)
 
-**Enterprise-grade multi-tenant hospitality platform with AI-powered operations**
+**A multi-tenant hospitality software prototype with AI-assisted workflows**
 
-[Features](#-features) • [Architecture](#-architecture) • [Quick Start](#-quick-start) • [API](#-api-documentation) • [Modules](#-modules)
+[Status](#project-status) • [Implemented Scope](#implemented-scope) • [Architecture](#architecture) • [Quick Start](#quick-start) • [API](#local-api) • [Testing](#testing)
 
 </div>
 
 ---
 
-## 🎯 Overview
+## Project status
 
-Mitch AI Suite is a comprehensive SaaS platform designed for the modern hospitality industry. From street food vendors to luxury restaurants, our platform provides AI-powered tools to streamline operations, enhance customer experience, and drive growth.
+> **Technical portfolio prototype**
+>
+> - This repository demonstrates a hospitality platform architecture and checked-in application code; it is not presented as a public production service.
+> - There is no public production API or public SLA for this project.
+> - The project is **not SOC 2 certified**.
+> - GDPR readiness or compliance has **not been independently assessed**. Data-export and tenant-isolation code should not be interpreted as certification or legal assurance.
+> - Any prices or tiers represented in application fixtures, database configuration, or UI screens are **illustrative**, not a public commercial offer.
 
-### Who Is This For?
+## Overview
 
-- 🍔 **Street Food Vendors** - Quick-service operations with QR ordering
-- 🍽️ **Restaurants** - Full-service dining with reservations and reviews
-- 🏨 **Hotels** - Multi-location management and compliance
-- 🍺 **Bars & Pubs** - Inventory and event management
-- ☕ **Cafés** - Menu optimization and loyalty programs
+Mitch AI Suite explores a multi-tenant hospitality application for menus, orders, reservations, reviews, content, analytics, and AI-assisted tasks. The primary implementation is a Node.js/TypeScript/Express backend, a Next.js frontend, and PostgreSQL persistence.
 
----
+The repository contains substantial prototype code, but individual modules may require external services, credentials, infrastructure, and further validation before they can be used end to end. Claims below describe checked-in implementation rather than a hosted-service commitment.
 
-## ✨ Features
+## Implemented scope
 
-### 🤖 AI-Powered Operations
+Checked-in code includes:
 
-| Feature | Description |
-|---------|-------------|
-| **AI Review Responder** | Generate professional responses to customer reviews across all platforms |
-| **Menu Description Generator** | Create appetizing descriptions with style customization |
-| **Content Generator** | Social posts, emails, promotions with platform-specific formatting |
-| **Sentiment Analysis** | Bulk analysis of customer feedback with trend detection |
-| **Smart Chatbot** | 24/7 customer service with context-aware responses |
-| **Predictive Analytics** | Demand forecasting and inventory optimization |
+- Express routes, controllers, validation, authentication, tenant context, and rate limiting.
+- PostgreSQL schema and migrations for the multi-tenant data model.
+- Service modules for menus, orders, reservations, reviews, content, compliance records, analytics, billing, data export, and AI orchestration.
+- A Next.js dashboard with pages and components for core hospitality and AI workflows.
+- Provider adapters for cloud AI services and local model endpoints, including an Ollama provider.
+- Docker Compose configuration for PostgreSQL, Redis, Qdrant, n8n, and optional Grafana infrastructure.
+- Jest-based backend tests and a CI workflow for type checking, linting, tests, backend builds, and frontend builds.
 
-### 📊 Business Intelligence
+Some integrations need provider accounts and environment configuration. The Compose file configures an n8n service, but this repository does not include n8n workflow definitions; n8n should therefore be treated as configured integration infrastructure rather than a delivered automation library. Ollama is an optional local-model integration and requires a separately running Ollama service and model.
 
-- **Real-time Dashboard** - KPIs, revenue tracking, order analytics
-- **Review Aggregation** - Google, TripAdvisor, Yelp, Deliveroo, Uber Eats
-- **Competitor Insights** - Market positioning and benchmarking
-- **Custom Reports** - Exportable analytics with scheduled delivery
+## Security and privacy posture
 
-### 🔒 Enterprise Security
+The codebase contains security-oriented implementation such as tenant middleware, role information, PostgreSQL Row-Level Security definitions, request validation, rate limiting, security headers, audit-related services, and data-export functionality. These controls are implementation evidence only. They do not establish production hardening, complete isolation, regulatory compliance, or third-party certification.
 
-- **Multi-tenant Architecture** - Complete data isolation with Row-Level Security
-- **Role-Based Access Control** - Granular permissions per location/user
-- **SOC 2 Compliant** - Enterprise-grade security standards
-- **GDPR Ready** - Data export, deletion, and consent management
+## Architecture
 
-### 💰 Blockchain Integration (Mitch Coin)
+```text
+Browser
+  |
+  v
+Next.js 14 / React frontend
+  |
+  v
+Node.js 20 / TypeScript / Express API
+  |----------------------|---------------------|
+  v                      v                     v
+PostgreSQL 16          Redis 7           AI provider adapters
+(primary data)    (cache/rate limits)   (cloud and local/Ollama)
 
-- **Loyalty Points** - Earn/redeem on Mitch Chain (Cosmos SDK)
-- **AI Credits** - Pay-per-use model with credit packages
-- **Wallet Integration** - Custodial and connected wallet support
-- **On-chain Transparency** - Verifiable transaction history
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              MITCH AI SUITE                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │   Next.js   │  │   Mobile    │  │  QR Order   │  │   Widget    │        │
-│  │  Dashboard  │  │    Apps     │  │    PWA      │  │   Embed     │        │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
-│         │                │                │                │                │
-│         └────────────────┴────────────────┴────────────────┘                │
-│                                   │                                          │
-│                          ┌───────▼───────┐                                  │
-│                          │   API Gateway  │                                  │
-│                          │  (Express.js)  │                                  │
-│                          └───────┬───────┘                                  │
-│                                  │                                           │
-│    ┌─────────────────────────────┼─────────────────────────────┐            │
-│    │                             │                              │            │
-│    ▼                             ▼                              ▼            │
-│  ┌─────────────┐       ┌─────────────────┐           ┌─────────────┐        │
-│  │   Core API  │       │ AI Orchestrator │           │  Blockchain │        │
-│  │  Services   │       │                 │           │   Client    │        │
-│  │             │       │ ┌─────────────┐ │           │             │        │
-│  │ • Auth      │       │ │   OpenAI    │ │           │ • Loyalty   │        │
-│  │ • Tenants   │       │ │  Anthropic  │ │           │ • Credits   │        │
-│  │ • Menu      │       │ │   Google    │ │           │ • Wallet    │        │
-│  │ • Orders    │       │ │   Local LLM │ │           │             │        │
-│  │ • Reviews   │       │ └─────────────┘ │           └──────┬──────┘        │
-│  │ • Content   │       └────────┬────────┘                  │               │
-│  │ • Analytics │                │                           │               │
-│  └──────┬──────┘                │                           │               │
-│         │                       │                           │               │
-│    ┌────┴────────────────┬──────┴───────────────────────────┘               │
-│    │                     │                                                   │
-│    ▼                     ▼                                                   │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │ PostgreSQL  │  │    Redis    │  │   Qdrant    │  │ Mitch Chain │        │
-│  │   16 + RLS  │  │    Cache    │  │  Vector DB  │  │  (Cosmos)   │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+Configured local integration infrastructure:
+- Qdrant for vector storage
+- n8n for workflow automation infrastructure
+- Grafana via the optional monitoring profile
 ```
 
-### Tech Stack
+### Primary stack
 
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Frontend** | Next.js 14, React 18, Tailwind CSS | Dashboard & PWA |
-| **API** | Node.js 22, Express.js, TypeScript | REST API |
-| **Database** | PostgreSQL 16 | Primary data store with RLS |
-| **Cache** | Redis 7 | Session, rate limiting, queues |
-| **Vector DB** | Qdrant | RAG & semantic search |
-| **AI** | OpenAI, Anthropic, Google, Local LLM | Multi-provider orchestration |
-| **Blockchain** | Cosmos SDK (Mitch Chain) | Loyalty & credits |
-| **Queue** | BullMQ | Background job processing |
-| **Monitoring** | Grafana, Prometheus | Observability |
+| Layer | Checked-in implementation |
+|---|---|
+| Backend | Node.js, TypeScript, Express |
+| Frontend | Next.js 14, React 18, Tailwind CSS |
+| Database | PostgreSQL 16 schema, migrations, and `pg` client |
+| Supporting services | Redis, Qdrant, n8n, optional Grafana via Docker Compose |
+| AI | Provider orchestration and adapters, including optional Ollama |
+| Testing | Jest/ts-jest backend tests; Playwright configuration/scripts for frontend E2E work |
 
----
-
-## 🚀 Quick Start
+## Quick start
 
 ### Prerequisites
 
-- Node.js 22+
-- Docker & Docker Compose
-- PostgreSQL 16 (or use Docker)
-- Redis 7 (or use Docker)
+- Node.js 20 recommended (CI uses Node.js 20; `package.json` declares Node.js 18 or newer)
+- npm
+- Git
+- Docker with Docker Compose for local infrastructure
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/hospitality-saas.git
-cd hospitality-saas
+git clone https://github.com/Bogdan0708/MitchAI.git
+cd MitchAI
 
-# Copy environment configuration
+npm ci
 cp .env.example .env
-# Edit .env with your API keys and settings
+# Replace placeholder values in .env before starting the API.
 
-# Start infrastructure services
-docker-compose up -d
-
-# Install backend dependencies
-npm install
-
-# Run database migrations
-npm run db:migrate
-
-# Seed demo data (optional)
-npm run db:seed
-
-# Start the development server
+docker compose up -d postgres redis
 npm run dev
 ```
 
-### Frontend Setup
+The backend defaults to `http://localhost:3000`. See [QUICKSTART.md](QUICKSTART.md) for database initialization, frontend startup, and example health-check output.
+
+### Frontend
+
+In a second terminal:
+
+```bash
+cd MitchAI/frontend
+npm ci
+npm run dev -- -p 3001
+```
+
+This uses port 3001 to avoid conflicting with the backend's default port. Configure the frontend's API URL for your local environment where required.
+
+## Local API
+
+The Express app mounts application routes at:
+
+```text
+http://localhost:3000/api/v1
+```
+
+Useful local endpoints include:
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/ping` | Basic process check |
+| `GET` | `/health` | Database and Redis health check |
+| `GET` | `/api/v1/health` | API-level database and Redis health check |
+| `POST` | `/api/v1/onboard` | Prototype tenant onboarding |
+| `POST` | `/api/v1/auth/login` | Authentication |
+| `GET` | `/api/v1/ai/health` | Authenticated AI-provider health check |
+| `GET` | `/api/v1/ai/models` | Authenticated configured-model listing |
+| `POST` | `/api/v1/ai/review-response` | Authenticated review-response generation |
+| `POST` | `/api/v1/ai/menu-description` | Authenticated menu-description generation |
+| `POST` | `/api/v1/ai/content` | Authenticated content generation |
+
+Most application routes require a bearer token and tenant context. Availability also depends on the database schema, Redis, and any relevant provider configuration. No public production base URL is advertised.
+
+### Example health request
+
+```bash
+curl http://localhost:3000/api/v1/health
+```
+
+Example response shape (values vary by run):
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-01-01T12:00:00.000Z",
+  "services": {
+    "database": "up",
+    "redis": "up"
+  }
+}
+```
+
+## Testing
+
+Install dependencies first with `npm ci`, then run:
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+```
+
+Build the frontend separately:
 
 ```bash
 cd frontend
-npm install
-npm run dev
+npm ci
+npm run build
 ```
 
-Access the dashboard at `http://localhost:3001`
+Test totals can change as the repository evolves; use the current command output rather than a fixed count in this document.
 
----
+## Project structure
 
-## 📚 API Documentation
-
-### Base URL
-
-```
-Development: http://localhost:3000/api/v1
-Production:  https://api.mitch.ai/v1
-```
-
-### Authentication
-
-All authenticated endpoints require a Bearer token:
-
-```bash
-curl -H "Authorization: Bearer <token>" \
-     -H "Content-Type: application/json" \
-     https://api.mitch.ai/v1/...
+```text
+MitchAI/
+├── src/                    # Express API, services, middleware, routes, and tests
+├── frontend/               # Next.js application
+├── database/               # PostgreSQL schema, migrations, and seed data
+├── docs/                   # Additional technical documentation
+├── scripts/                # Database and project scripts
+├── docker-compose.yml      # Local supporting services
+├── package.json            # Backend scripts and dependencies
+└── QUICKSTART.md           # Local setup guide
 ```
 
-### Key Endpoints
-
-#### AI Services
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/ai/health` | Check AI provider status |
-| `GET` | `/ai/models` | List available models |
-| `POST` | `/ai/review-response` | Generate review response |
-| `POST` | `/ai/menu-description` | Generate menu description |
-| `POST` | `/ai/content` | Generate marketing content |
-| `POST` | `/ai/sentiment` | Analyze sentiment (batch) |
-| `POST` | `/ai/translate` | Translate with context |
-| `POST` | `/ai/chat` | General assistant |
-| `GET` | `/ai/usage` | Usage statistics |
-
-#### Core Operations
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/auth/login` | Authenticate user |
-| `POST` | `/auth/register` | Register tenant |
-| `GET` | `/menu/items` | List menu items |
-| `POST` | `/orders` | Create order |
-| `GET` | `/reviews` | List reviews |
-| `GET` | `/analytics` | Dashboard analytics |
-
----
-
-## 📦 Modules
-
-### Guest Whisperer (Reviews)
-Aggregate and respond to reviews from all major platforms with AI-powered response generation.
-
-### Menu Maestro
-AI-enhanced menu management with description generation, pricing optimization, and allergen tracking.
-
-### Order Flow
-End-to-end order management with QR ordering, kitchen display, and delivery integration.
-
-### Compliance Guardian
-HACCP compliance, temperature logging, equipment maintenance, and audit trails.
-
-### Content Studio
-Social media scheduling, campaign management, and AI content generation.
-
-### Business Intelligence
-Real-time analytics, predictive insights, and automated alerts.
-
----
-
-## 💳 Pricing Tiers
-
-| Feature | Starter | Professional | Enterprise |
-|---------|:-------:|:------------:|:----------:|
-| **Price** | $49/mo | $149/mo | $499/mo |
-| **Locations** | 1 | 5 | Unlimited |
-| **Users** | 5 | 20 | Unlimited |
-| **API Calls** | 10,000 | 50,000 | 500,000 |
-| **AI Credits** | 1,000 | 5,000 | 25,000 |
-| **Review Platforms** | 2 | All | All |
-| **Support** | Email | Priority | Dedicated |
-| **Custom Branding** | ❌ | ✅ | ✅ |
-| **API Access** | ❌ | ✅ | ✅ |
-| **SLA** | ❌ | 99.5% | 99.9% |
-
----
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run with coverage
-npm run test:coverage
-
-# Run specific test file
-npx jest src/tests/services/mtc-client.test.ts
-
-# Watch mode
-npm run test:watch
-```
-
-### Test Coverage
-
-- **MTC Client**: 40 tests (blockchain operations)
-- **AI Orchestrator**: 27 tests (multi-provider routing)
-- **Services**: 96+ tests total
-
----
-
-## 🔧 Development
-
-### Project Structure
-
-```
-hospitality-saas/
-├── src/
-│   ├── controllers/     # Request handlers
-│   ├── services/        # Business logic
-│   │   ├── ai/          # AI orchestration
-│   │   ├── blockchain/  # MTC client
-│   │   └── tenant/      # Tenant services
-│   ├── routes/          # API routes
-│   ├── middleware/      # Express middleware
-│   ├── validators/      # Request validation (Zod)
-│   ├── lib/             # Utilities
-│   └── tests/           # Test suites
-├── frontend/
-│   ├── src/
-│   │   ├── app/         # Next.js pages
-│   │   ├── components/  # React components
-│   │   └── lib/         # Frontend utilities
-├── database/
-│   ├── migrations/      # SQL migrations
-│   ├── seeds/           # Demo data
-│   └── schema.sql       # Full schema
-├── infrastructure/      # Deployment configs
-└── docs/                # Documentation
-```
-
-### Environment Variables
-
-```env
-# Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/hospitality
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# JWT
-JWT_SECRET=your-secret-key
-
-# AI Providers
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_AI_API_KEY=...
-
-# Blockchain
-MTC_RPC_URL=http://localhost:26657
-MTC_REST_URL=http://localhost:1317
-MTC_CHAIN_ID=mitch-1
-
-# External Services
-STRIPE_SECRET_KEY=sk_...
-SENDGRID_API_KEY=SG...
-```
-
----
-
-## 🤝 Contributing
-
-This is a proprietary project. For partnership inquiries, contact the team.
-
----
-
-## 📄 License
+## License
 
 **Proprietary** - © 2024-2025 Mitch from Transylvania Ltd.
 
 All rights reserved. Unauthorized copying, modification, or distribution is prohibited.
-
----
-
-<div align="center">
-
-**Built with 🦇 in London**
-
-Part of the Mitch AI Suite Ecosystem
-
-</div>
-# Deploy 1770463423
