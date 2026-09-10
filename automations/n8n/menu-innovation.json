@@ -1,0 +1,132 @@
+{
+  "name": "Mitch Menu Innovation Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "menu-innovation",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook - Menu Request",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "REDACTED"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\n\nconst prompts = {\n  new_items: `Create 3 new menu items for Mitch street food that:\n- Combine Romanian ingredients with ${input.cuisine_style || 'modern fusion'}\n- Target ${input.target_audience || 'young professionals in Bucharest'}\n- Price range: ${input.price_range || '20-40 RON'}\n- Current season: ${input.season || 'current'}\nFor each item provide: Name, Description, Key Ingredients, Suggested Price, Marketing Hook`,\n  \n  refine_item: `Improve this menu item: ${input.item_name}\nCurrent description: ${input.current_description}\nFeedback to address: ${input.feedback}\nProvide: Improved name, Enhanced description, Ingredient tweaks, New marketing angle`,\n  \n  seasonal: `Create a seasonal menu (${input.season}) with 5 items using:\n- Seasonal Romanian ingredients available in ${input.season}\n- Transylvanian theme\n- Instagram-worthy presentation ideas\n- Cost-effective ingredients`,\n  \n  competitor_analysis: `Analyze this competitor item: ${input.competitor_item}\nFrom: ${input.competitor_name}\nHow can Mitch create something better that:\n- Uses authentic Romanian ingredients\n- Has stronger Transylvanian branding\n- Offers better value\n- Is more Instagrammable`\n};\n\nconst selectedPrompt = prompts[input.workflow_type || 'new_items'];\n\nreturn [{\n  json: {\n    prompt: selectedPrompt,\n    workflow_type: input.workflow_type,\n    context: input\n  }\n}];"
+      },
+      "name": "Build Menu Prompt",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://mcp-server:3000/tools/parallel-ai-query",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.prompt }}"
+            },
+            {
+              "name": "providers",
+              "value": "=[\"claude\"]"
+            },
+            {
+              "name": "temperature",
+              "value": "=0.8"
+            },
+            {
+              "name": "max_tokens",
+              "value": "=800"
+            }
+          ]
+        }
+      },
+      "name": "Call AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.item.json;\nconst context = $node['Build Menu Prompt'].json.context;\n\nreturn [{\n  json: {\n    workflow_type: context.workflow_type,\n    request_timestamp: new Date().toISOString(),\n    ai_suggestions: aiResponse.results[0].response,\n    model_used: aiResponse.results[0].model,\n    input_parameters: context,\n    mitch_branding_tip: \"Remember: Emphasize Transylvanian heritage and vampire theme for social media appeal!\"\n  }\n}];"
+      },
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "name": "Return Menu Ideas",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Menu Request": {
+      "main": [
+        [
+          {
+            "node": "Build Menu Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Menu Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call AI": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Return Menu Ideas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

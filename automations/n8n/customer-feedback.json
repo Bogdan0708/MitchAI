@@ -1,0 +1,127 @@
+{
+  "name": "🧛 Mitch - Customer Feedback Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "customer-feedback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Webhook - Feedback",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "REDACTED"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract feedback data\nconst input = $input.item.json;\n\n// Define analysis prompts based on feedback type\nconst prompts = {\n  sentiment_analysis: `As a restaurant consultant for Mitch (Transylvanian street food), analyze this customer feedback:\n\n\"${input.feedback_text}\"\n\nProvide:\n1. Overall sentiment (Positive/Neutral/Negative) with confidence score\n2. Key emotions detected\n3. Specific menu items mentioned\n4. Service quality indicators\n5. Actionable insights for improvement\n6. Recommended immediate response\n\nFormat as JSON with clear categories.`,\n\n  review_response: `Generate a professional, warm response to this customer review for Mitch (Transylvanian street food):\n\nRating: ${input.rating}/5\nReview: \"${input.feedback_text}\"\n\nResponse should:\n- Thank the customer genuinely\n- Address specific points they mentioned\n- Reflect Mitch's brand (authentic, traditional, welcoming)\n- Invite them back\n- Use a mix of Romanian warmth and professional tone\n- Be 2-3 sentences, natural and not robotic`,\n\n  trend_analysis: `Analyze these recent customer feedback items for Mitch:\n\n${JSON.stringify(input.feedback_batch, null, 2)}\n\nIdentify:\n1. Recurring themes (positive and negative)\n2. Most praised menu items\n3. Most criticized aspects\n4. Service patterns\n5. Suggested menu adjustments\n6. Training opportunities for staff\n7. Competitive advantages mentioned\n\nProvide strategic recommendations ranked by priority.`,\n\n  complaint_handler: `Handle this customer complaint for Mitch (Transylvanian street food):\n\nComplaint: \"${input.feedback_text}\"\nChannel: ${input.channel || 'Unknown'}\n\nProvide:\n1. Complaint categorization (Food Quality/Service/Cleanliness/Pricing/Other)\n2. Urgency level (Low/Medium/High/Critical)\n3. Immediate action required\n4. Response template for customer\n5. Internal process improvement suggestion\n6. Follow-up timeline\n7. Compensation recommendation (if applicable)`,\n\n  menu_insights: `Extract menu-related insights from this feedback for Mitch:\n\n\"${input.feedback_text}\"\n\nAnalyze:\n1. Specific dishes mentioned\n2. Taste/quality comments\n3. Portion size feedback\n4. Price perception\n5. Pairing suggestions from customers\n6. Missing items customers requested\n7. Recommendations for menu engineering`\n};\n\n// Select appropriate prompt\nconst feedbackType = input.feedback_type || 'sentiment_analysis';\nconst prompt = prompts[feedbackType] || prompts.sentiment_analysis;\n\nreturn {\n  json: {\n    prompt: prompt,\n    feedback_type: feedbackType,\n    original_feedback: input.feedback_text,\n    metadata: {\n      rating: input.rating,\n      source: input.source || 'manual',\n      timestamp: new Date().toISOString(),\n      customer_id: input.customer_id\n    }\n  }\n};"
+      },
+      "id": "REDACTED",
+      "name": "Process Feedback Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mcp-server:3000/claude",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  {\n    \"prompt\": $json.prompt,\n    \"temperature\": 0.7,\n    \"max_tokens\": 2000\n  }\n}}",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Call Claude - Analyze Feedback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format the response\nconst claudeResponse = $input.item.json;\nconst metadata = $('Process Feedback Request').item.json.metadata;\nconst feedbackType = $('Process Feedback Request').item.json.feedback_type;\n\nlet formattedResponse = {\n  success: true,\n  feedback_type: feedbackType,\n  analysis: claudeResponse.response || claudeResponse,\n  metadata: metadata,\n  timestamp: new Date().toISOString()\n};\n\n// Add specific formatting based on feedback type\nif (feedbackType === 'sentiment_analysis') {\n  formattedResponse.quick_summary = {\n    sentiment: 'Analyzed',\n    recommendation: 'Review full analysis'\n  };\n} else if (feedbackType === 'complaint_handler') {\n  formattedResponse.priority = 'Requires attention';\n  formattedResponse.action_needed = true;\n}\n\nreturn { json: formattedResponse };"
+      },
+      "id": "REDACTED",
+      "name": "Format Feedback Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "REDACTED",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Feedback": {
+      "main": [
+        [
+          {
+            "node": "Process Feedback Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Feedback Request": {
+      "main": [
+        [
+          {
+            "node": "Call Claude - Analyze Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Claude - Analyze Feedback": {
+      "main": [
+        [
+          {
+            "node": "Format Feedback Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Feedback Analysis": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

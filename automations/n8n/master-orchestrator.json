@@ -1,0 +1,578 @@
+{
+  "name": "🧛 Mitch - Master Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mitch-master",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Master Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        500
+      ],
+      "webhookId": "REDACTED"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Route to appropriate workflow based on request\nconst input = $input.item.json;\nconst workflow = input.workflow || 'unknown';\n\n// Workflow routing configuration\nconst routes = {\n  'menu': {\n    url: 'http://localhost:5678/webhook/menu-innovation',\n    description: 'Menu Innovation Engine'\n  },\n  'social': {\n    url: 'http://localhost:5678/webhook/social-content',\n    description: 'Social Media Generator'\n  },\n  'strategy': {\n    url: 'http://localhost:5678/webhook/business-strategy',\n    description: 'Business Strategy Advisor'\n  },\n  'feedback': {\n    url: 'http://localhost:5678/webhook/customer-feedback',\n    description: 'Customer Feedback Analyzer'\n  },\n  'operations': {\n    url: 'http://localhost:5678/webhook/daily-operations',\n    description: 'Daily Operations Assistant'\n  },\n  'combo': {\n    description: 'Multi-workflow orchestration'\n  }\n};\n\nreturn {\n  json: {\n    workflow: workflow,\n    route: routes[workflow] || routes['unknown'],\n    payload: input,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "REDACTED",
+      "name": "Workflow Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.workflow }}",
+              "rightValue": "menu",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Is Menu?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.workflow }}",
+              "rightValue": "social",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Is Social?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        650,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.workflow }}",
+              "rightValue": "strategy",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Is Strategy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        650,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.workflow }}",
+              "rightValue": "feedback",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Is Feedback?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        650,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.workflow }}",
+              "rightValue": "operations",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Is Operations?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        650,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.workflow }}",
+              "rightValue": "combo",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Is Combo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        650,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.route.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Call Menu Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.route.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Call Social Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        900,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.route.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Call Strategy Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        900,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.route.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Call Feedback Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        900,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.route.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Call Operations Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        900,
+        1100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle combination workflows\nconst input = $input.item.json.payload;\nconst comboType = input.combo_type;\n\n// Define combination workflows\nconst combos = {\n  'new_item_launch': {\n    description: 'Create menu item + social content',\n    steps: [\n      {\n        workflow: 'menu',\n        params: {\n          workflow_type: 'new_items',\n          cuisine_style: input.cuisine_style || 'Traditional Transylvanian',\n          target_audience: input.target_audience || 'locals and tourists',\n          price_range: input.price_range || '25-40 RON'\n        }\n      },\n      {\n        workflow: 'social',\n        params: {\n          content_type: 'instagram_post',\n          topic: 'New menu item launch'\n        }\n      }\n    ]\n  },\n  'feedback_action': {\n    description: 'Analyze feedback + create strategy',\n    steps: [\n      {\n        workflow: 'feedback',\n        params: {\n          feedback_type: 'trend_analysis',\n          feedback_batch: input.feedback_data\n        }\n      },\n      {\n        workflow: 'strategy',\n        params: {\n          strategy_type: 'menu_optimization',\n          feedback_insights: 'from_previous_step'\n        }\n      }\n    ]\n  },\n  'daily_startup': {\n    description: 'Morning operations + social + menu check',\n    steps: [\n      {\n        workflow: 'operations',\n        params: {\n          operation_type: 'daily_checklist',\n          shift: 'morning',\n          day_of_week: new Date().toLocaleDateString('en-US', { weekday: 'long' })\n        }\n      },\n      {\n        workflow: 'social',\n        params: {\n          content_type: 'instagram_post',\n          topic: \"Today's special\"\n        }\n      },\n      {\n        workflow: 'menu',\n        params: {\n          workflow_type: 'seasonal',\n          season: input.season || 'current'\n        }\n      }\n    ]\n  },\n  'weekly_review': {\n    description: 'Full business review',\n    steps: [\n      {\n        workflow: 'feedback',\n        params: {\n          feedback_type: 'trend_analysis',\n          feedback_batch: input.weekly_feedback\n        }\n      },\n      {\n        workflow: 'operations',\n        params: {\n          operation_type: 'waste_reduction',\n          waste_data: input.waste_data\n        }\n      },\n      {\n        workflow: 'strategy',\n        params: {\n          strategy_type: 'menu_optimization',\n          data_period: 'last_week'\n        }\n      },\n      {\n        workflow: 'social',\n        params: {\n          content_type: 'weekly_calendar',\n          theme: 'Based on weekly insights'\n        }\n      }\n    ]\n  }\n};\n\nconst selectedCombo = combos[comboType] || combos['new_item_launch'];\n\nreturn {\n  json: {\n    combo_type: comboType,\n    combo_config: selectedCombo,\n    execution_plan: selectedCombo.steps,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "REDACTED",
+      "name": "Combination Workflow Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Execute combination workflows in sequence\nconst executionPlan = $input.item.json.execution_plan;\nconst results = [];\n\nfor (const step of executionPlan) {\n  const url = `http://localhost:5678/webhook/${step.workflow === 'menu' ? 'menu-innovation' : \n                                           step.workflow === 'social' ? 'social-content' :\n                                           step.workflow === 'strategy' ? 'business-strategy' :\n                                           step.workflow === 'feedback' ? 'customer-feedback' :\n                                           'daily-operations'}`;\n  \n  results.push({\n    step: step.workflow,\n    url: url,\n    params: step.params,\n    status: 'pending'\n  });\n}\n\nreturn { json: { results: results } };"
+      },
+      "id": "REDACTED",
+      "name": "Execute Combo Steps",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        1300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "REDACTED",
+              "name": "result",
+              "value": "={{ $json }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Merge All Results",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.2,
+      "position": [
+        1150,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "REDACTED",
+      "name": "Respond to Master Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        700
+      ]
+    }
+  ],
+  "connections": {
+    "Master Webhook": {
+      "main": [
+        [
+          {
+            "node": "Workflow Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Router": {
+      "main": [
+        [
+          {
+            "node": "Is Menu?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Social?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Strategy?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Feedback?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Operations?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Combo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Menu?": {
+      "main": [
+        [
+          {
+            "node": "Call Menu Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Social?": {
+      "main": [
+        [
+          {
+            "node": "Call Social Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Strategy?": {
+      "main": [
+        [
+          {
+            "node": "Call Strategy Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Feedback?": {
+      "main": [
+        [
+          {
+            "node": "Call Feedback Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Operations?": {
+      "main": [
+        [
+          {
+            "node": "Call Operations Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Combo?": {
+      "main": [
+        [
+          {
+            "node": "Combination Workflow Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Menu Workflow": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Social Workflow": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Strategy Workflow": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Feedback Workflow": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Operations Workflow": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combination Workflow Handler": {
+      "main": [
+        [
+          {
+            "node": "Execute Combo Steps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Combo Steps": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Results": {
+      "main": [
+        [
+          {
+            "node": "Respond to Master Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

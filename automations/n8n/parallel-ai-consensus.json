@@ -1,0 +1,254 @@
+{
+  "name": "Parallel AI Consensus Decision",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "parallel-ai",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Webhook - Parallel AI Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "REDACTED"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mcp-server:3000/llm/parallel",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.MCP_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  {\n    \"prompt\": $json.prompt || $json.question,\n    \"system_prompt\": $json.system_prompt || \"You are a business consultant for a Transylvanian street food business. Provide specific, actionable recommendations.\",\n    \"providers\": $json.providers || [\"anthropic\", \"openai\"],\n    \"temperature\": $json.temperature || 0.7,\n    \"max_tokens\": $json.max_tokens || 300\n  }\n}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "REDACTED",
+      "name": "Call Parallel AI Endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        470,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process parallel AI responses and extract insights\nconst response = $input.item.json;\n\nconst results = response.results || [];\nconst successful = results.filter(r => !r.error);\nconst failed = results.filter(r => r.error);\n\n// Extract recommendations from each provider\nconst recommendations = successful.map(result => ({\n  provider: result.provider,\n  model: result.model,\n  recommendation: result.response,\n  tokens: result.usage.total_tokens,\n  confidence: calculateConfidence(result.response)\n}));\n\n// Calculate consensus score\nconst consensusScore = calculateConsensus(recommendations);\n\n// Find common themes\nconst commonThemes = findCommonThemes(recommendations);\n\n// Determine best recommendation\nconst bestRecommendation = recommendations.reduce((best, current) => \n  current.confidence > best.confidence ? current : best\n, recommendations[0] || {});\n\nreturn {\n  json: {\n    request_id: response.request_id,\n    prompt: response.prompt,\n    timestamp: response.timestamp,\n    \n    // Summary\n    summary: {\n      total_providers: response.summary.total_providers,\n      successful: response.summary.successful,\n      failed: response.summary.failed,\n      total_tokens: response.summary.total_tokens,\n      response_time_ms: response.summary.response_time_ms,\n      consensus_score: consensusScore\n    },\n    \n    // All recommendations\n    recommendations: recommendations,\n    \n    // Analysis\n    analysis: {\n      common_themes: commonThemes,\n      best_recommendation: bestRecommendation,\n      agreement_level: consensusScore > 0.7 ? 'high' : consensusScore > 0.4 ? 'moderate' : 'low',\n      requires_human_review: consensusScore < 0.4 || failed.length > 0\n    },\n    \n    // Failed providers (if any)\n    failures: failed.map(f => ({\n      provider: f.provider,\n      error: f.error\n    }))\n  }\n};\n\n// Helper function: Calculate confidence based on response characteristics\nfunction calculateConfidence(text) {\n  let score = 0.5; // Base score\n  \n  // Specific recommendations score higher\n  if (text.match(/\\b(recommend|suggest|best|perfect|ideal)\\b/i)) score += 0.1;\n  \n  // Detailed explanations score higher\n  if (text.length > 100) score += 0.1;\n  \n  // Numbers and specifics score higher\n  if (text.match(/\\d+/)) score += 0.1;\n  \n  // Business reasoning scores higher\n  if (text.match(/\\b(cost|profit|revenue|customers|sales)\\b/i)) score += 0.1;\n  \n  // Cultural authenticity scores higher\n  if (text.match(/\\b(Romanian|Transylvanian|traditional|authentic)\\b/i)) score += 0.1;\n  \n  return Math.min(score, 1.0);\n}\n\n// Helper function: Calculate consensus between recommendations\nfunction calculateConsensus(recs) {\n  if (recs.length < 2) return 1.0;\n  \n  let totalSimilarity = 0;\n  let comparisons = 0;\n  \n  for (let i = 0; i < recs.length; i++) {\n    for (let j = i + 1; j < recs.length; j++) {\n      totalSimilarity += calculateSimilarity(recs[i].recommendation, recs[j].recommendation);\n      comparisons++;\n    }\n  }\n  \n  return comparisons > 0 ? totalSimilarity / comparisons : 0;\n}\n\n// Helper function: Calculate text similarity\nfunction calculateSimilarity(text1, text2) {\n  const words1 = text1.toLowerCase().match(/\\b\\w+\\b/g) || [];\n  const words2 = text2.toLowerCase().match(/\\b\\w+\\b/g) || [];\n  \n  const set1 = new Set(words1);\n  const set2 = new Set(words2);\n  \n  const intersection = new Set([...set1].filter(x => set2.has(x)));\n  const union = new Set([...set1, ...set2]);\n  \n  return union.size > 0 ? intersection.size / union.size : 0;\n}\n\n// Helper function: Find common themes across recommendations\nfunction findCommonThemes(recs) {\n  const allText = recs.map(r => r.recommendation).join(' ').toLowerCase();\n  \n  const themes = [];\n  \n  // Check for common food items\n  const foods = ['sarmale', 'mici', 'papanași', 'goulash', 'polenta', 'cabbage', 'beet', 'pomegranate'];\n  foods.forEach(food => {\n    const count = (allText.match(new RegExp(food, 'g')) || []).length;\n    if (count >= 2) themes.push({ theme: food, mentions: count });\n  });\n  \n  // Check for common concepts\n  const concepts = [\n    { name: 'authenticity', keywords: ['authentic', 'traditional', 'romanian', 'transylvanian'] },\n    { name: 'visual_appeal', keywords: ['instagram', 'visual', 'presentation', 'striking'] },\n    { name: 'vampire_theme', keywords: ['vampire', 'blood', 'dracula', 'transylvania'] },\n    { name: 'comfort_food', keywords: ['comfort', 'hearty', 'warming', 'traditional'] },\n    { name: 'portability', keywords: ['handheld', 'portable', 'on-the-go', 'easy to eat'] }\n  ];\n  \n  concepts.forEach(concept => {\n    const matches = concept.keywords.filter(kw => allText.includes(kw)).length;\n    if (matches >= 2) themes.push({ theme: concept.name, strength: matches });\n  });\n  \n  return themes;\n}"
+      },
+      "id": "REDACTED",
+      "name": "Process & Analyze Responses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        690,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "REDACTED",
+              "leftValue": "={{ $json.analysis.agreement_level }}",
+              "rightValue": "high",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Check Consensus Level",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        910,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format high consensus response\nconst data = $input.item.json;\n\nconst output = {\n  status: 'success',\n  consensus: 'high',\n  message: '✅ Strong consensus between AI providers - Safe to proceed',\n  \n  recommendation: {\n    summary: data.analysis.best_recommendation.recommendation,\n    provider: data.analysis.best_recommendation.provider,\n    confidence: Math.round(data.analysis.best_recommendation.confidence * 100) + '%',\n    consensus_score: Math.round(data.summary.consensus_score * 100) + '%'\n  },\n  \n  common_themes: data.analysis.common_themes,\n  \n  all_responses: data.recommendations.map(r => ({\n    provider: r.provider,\n    summary: r.recommendation.substring(0, 200) + '...',\n    tokens: r.tokens\n  })),\n  \n  metadata: {\n    request_id: data.request_id,\n    prompt: data.prompt,\n    response_time_ms: data.summary.response_time_ms,\n    total_tokens: data.summary.total_tokens,\n    estimated_cost: '$' + (data.summary.total_tokens * 0.000006).toFixed(4)\n  }\n};\n\nreturn { json: output };"
+      },
+      "id": "REDACTED",
+      "name": "Format High Consensus Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1130,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format low consensus response - requires human review\nconst data = $input.item.json;\n\nconst output = {\n  status: 'review_required',\n  consensus: data.analysis.agreement_level,\n  message: '⚠️ Low consensus - Human review recommended',\n  \n  conflicting_recommendations: data.recommendations.map(r => ({\n    provider: r.provider,\n    model: r.model,\n    recommendation: r.recommendation,\n    confidence: Math.round(r.confidence * 100) + '%'\n  })),\n  \n  analysis: {\n    agreement_level: data.analysis.agreement_level,\n    consensus_score: Math.round(data.summary.consensus_score * 100) + '%',\n    common_themes: data.analysis.common_themes,\n    suggestion: 'Review all recommendations and choose based on your business priorities'\n  },\n  \n  failures: data.failures,\n  \n  metadata: {\n    request_id: data.request_id,\n    prompt: data.prompt,\n    response_time_ms: data.summary.response_time_ms,\n    total_tokens: data.summary.total_tokens,\n    estimated_cost: '$' + (data.summary.total_tokens * 0.000006).toFixed(4)\n  }\n};\n\nreturn { json: output };"
+      },
+      "id": "REDACTED",
+      "name": "Format Low Consensus Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1130,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Return Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ai_consensus_decisions \n  (request_id, prompt, providers, consensus_score, agreement_level, best_recommendation, all_responses, common_themes, total_tokens, response_time_ms, created_at)\nVALUES \n  ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())\nRETURNING id;",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Store Decision in Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [
+        1350,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Parallel AI Request": {
+      "main": [
+        [
+          {
+            "node": "Call Parallel AI Endpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Parallel AI Endpoint": {
+      "main": [
+        [
+          {
+            "node": "Process & Analyze Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Analyze Responses": {
+      "main": [
+        [
+          {
+            "node": "Check Consensus Level",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Consensus Level": {
+      "main": [
+        [
+          {
+            "node": "Format High Consensus Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Low Consensus Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format High Consensus Response": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Store Decision in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Low Consensus Response": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Store Decision in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-18T17:10:00.000Z",
+  "versionId": "REDACTED"
+}

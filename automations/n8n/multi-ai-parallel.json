@@ -1,0 +1,236 @@
+{
+  "name": "Multi-AI Provider Parallel Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-request",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse incoming request and prepare for parallel processing\nconst inputData = $input.item.json;\n\nreturn {\n  json: {\n    prompt: inputData.prompt || inputData.message,\n    model_preferences: inputData.model_preferences || {\n      lm_studio: true,\n      openai: true,\n      claude: true\n    },\n    parameters: {\n      temperature: inputData.temperature || 0.7,\n      max_tokens: inputData.max_tokens || 1000\n    },\n    timestamp: new Date().toISOString(),\n    request_id: `req_${Date.now()}`\n  }\n};"
+      },
+      "id": "REDACTED",
+      "name": "Parse Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://lm-studio:1234/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": []
+        },
+        "jsonBody": "={\n  \"model\": \"local-model\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.prompt }}\"\n    }\n  ],\n  \"temperature\": {{ $json.parameters.temperature }},\n  \"max_tokens\": {{ $json.parameters.max_tokens }}\n}",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "LM Studio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        650,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "operation": "create",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4",
+          "mode": "list",
+          "cachedResultName": "GPT-4"
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "={{ $json.prompt }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": "={{ $json.parameters.temperature }}",
+          "maxTokens": "={{ $json.parameters.max_tokens }}"
+        }
+      },
+      "id": "REDACTED",
+      "name": "OpenAI GPT",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $credentials.anthropicApiKey }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-20250514\",\n  \"max_tokens\": {{ $json.parameters.max_tokens }},\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.prompt }}\"\n    }\n  ],\n  \"temperature\": {{ $json.parameters.temperature }}\n}",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Claude API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        650,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate responses from all AI providers\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const nodeName = item.json.node || 'unknown';\n  let response = '';\n  \n  // Handle different response formats\n  if (item.json.choices && item.json.choices[0]) {\n    // OpenAI/LM Studio format\n    response = item.json.choices[0].message.content;\n  } else if (item.json.content && item.json.content[0]) {\n    // Claude format\n    response = item.json.content[0].text;\n  } else if (item.json.message) {\n    // Generic format\n    response = item.json.message;\n  }\n  \n  results.push({\n    provider: nodeName,\n    response: response,\n    model: item.json.model,\n    timestamp: new Date().toISOString()\n  });\n}\n\nreturn {\n  json: {\n    request_id: items[0].json.request_id,\n    results: results,\n    total_providers: results.length,\n    aggregated_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "REDACTED",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "REDACTED",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Request": {
+      "main": [
+        [
+          {
+            "node": "LM Studio",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "OpenAI GPT",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Claude API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LM Studio": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

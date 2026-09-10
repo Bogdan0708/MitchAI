@@ -1,0 +1,127 @@
+{
+  "name": "🧛 Mitch - Daily Operations Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "daily-operations",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Webhook - Operations",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "REDACTED"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract operations data\nconst input = $input.item.json;\n\n// Define operational prompts\nconst prompts = {\n  daily_checklist: `Create a detailed daily opening checklist for Mitch (Transylvanian street food) for ${input.shift || 'morning shift'}.\n\nInclude:\n1. Food prep tasks (specific to our menu)\n2. Station setup\n3. Hygiene and safety checks\n4. Inventory quick-check\n5. Equipment verification\n6. Staff briefing points\n7. Special notes for ${input.day_of_week || 'today'}\n8. Expected busy periods\n\nFormat as a practical, printable checklist.`,\n\n  inventory_order: `Based on these inventory levels for Mitch:\n\n${JSON.stringify(input.current_inventory, null, 2)}\n\nWeek: ${input.week_period || 'This week'}\nExpected sales: ${input.expected_sales || 'Normal'}\nUpcoming events: ${input.events || 'None'}\n\nGenerate:\n1. Recommended order quantities for each ingredient\n2. Priority items (critical, low stock)\n3. Cost estimation\n4. Suggested suppliers (local Romanian if possible)\n5. Optimal ordering day\n6. Storage preparation needed\n7. Budget considerations\n\nKeep traditional Transylvanian recipe requirements in mind.`,\n\n  staff_scheduling: `Help with staff scheduling for Mitch:\n\nPeriod: ${input.schedule_period || 'Next week'}\nStaff available: ${JSON.stringify(input.staff_list, null, 2)}\nExpected traffic: ${input.traffic_forecast || 'Normal'}\nSpecial events: ${input.special_events || 'None'}\n\nProvide:\n1. Optimal shift distribution\n2. Coverage analysis\n3. Break scheduling\n4. Skills matching to tasks\n5. Backup plan recommendations\n6. Cost per shift analysis\n7. Fair rotation suggestions`,\n\n  quality_control: `Create a quality control checklist for ${input.meal_period || 'lunch service'} at Mitch:\n\nFocus areas:\n1. Food temperature monitoring\n2. Taste consistency checks\n3. Portion size verification\n4. Presentation standards\n5. Food safety compliance\n6. Customer satisfaction checks\n7. Waste tracking\n8. Equipment performance\n\nInclude specific benchmarks and action items.`,\n\n  problem_solver: `Help solve this operational issue at Mitch:\n\nProblem: \"${input.problem_description}\"\nUrgency: ${input.urgency || 'Medium'}\nImpact: ${input.impact || 'Unknown'}\n\nProvide:\n1. Problem analysis\n2. Immediate mitigation steps\n3. 3 solution options (with pros/cons)\n4. Resource requirements\n5. Implementation timeline\n6. Prevention strategies\n7. Who to involve\n\nConsider budget constraints and staff capabilities.`,\n\n  waste_reduction: `Analyze waste reduction opportunities for Mitch:\n\nCurrent waste data: ${JSON.stringify(input.waste_data, null, 2)}\n\nSuggestions for:\n1. Ingredient utilization improvements\n2. Portion optimization\n3. Creative use of leftovers (traditional recipes)\n4. Donation opportunities\n5. Composting potential\n6. Order quantity adjustments\n7. ROI of each recommendation\n\nPrioritize by impact and ease of implementation.`,\n\n  health_safety: `Generate a health and safety briefing for Mitch staff:\n\nFocus: ${input.safety_focus || 'General'}\nRecent incidents: ${input.recent_incidents || 'None'}\nSeason: ${input.season || 'Current'}\n\nCover:\n1. Critical safety reminders\n2. Food handling protocols\n3. Allergen awareness\n4. Emergency procedures\n5. Equipment safety\n6. Personal hygiene standards\n7. Seasonal considerations\n\nMake it engaging and memorable, not just a boring lecture.`\n};\n\n// Select appropriate prompt\nconst operationType = input.operation_type || 'daily_checklist';\nconst prompt = prompts[operationType] || prompts.daily_checklist;\n\nreturn {\n  json: {\n    prompt: prompt,\n    operation_type: operationType,\n    metadata: {\n      requested_by: input.requested_by || 'system',\n      location: input.location || 'main',\n      timestamp: new Date().toISOString(),\n      priority: input.priority || 'normal'\n    }\n  }\n};"
+      },
+      "id": "REDACTED",
+      "name": "Process Operations Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mcp-server:3000/claude",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \n  {\n    \"prompt\": $json.prompt,\n    \"temperature\": 0.5,\n    \"max_tokens\": 2000\n  }\n}}",
+        "options": {}
+      },
+      "id": "REDACTED",
+      "name": "Call Claude - Operations Assistant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format the response\nconst claudeResponse = $input.item.json;\nconst metadata = $('Process Operations Request').item.json.metadata;\nconst operationType = $('Process Operations Request').item.json.operation_type;\n\nreturn {\n  json: {\n    success: true,\n    operation_type: operationType,\n    operational_guidance: claudeResponse.response || claudeResponse,\n    metadata: metadata,\n    timestamp: new Date().toISOString(),\n    action_required: operationType === 'problem_solver' ? true : false\n  }\n};"
+      },
+      "id": "REDACTED",
+      "name": "Format Operations Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "REDACTED",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Operations": {
+      "main": [
+        [
+          {
+            "node": "Process Operations Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Operations Request": {
+      "main": [
+        [
+          {
+            "node": "Call Claude - Operations Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Claude - Operations Assistant": {
+      "main": [
+        [
+          {
+            "node": "Format Operations Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Operations Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+}

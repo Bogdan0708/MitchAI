@@ -1,0 +1,132 @@
+{
+  "name": "Mitch Social Media Content Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "social-content",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook - Social Request",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "REDACTED"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\n\nconst prompts = {\n  instagram_post: `Create an Instagram post for Mitch street food:\nTopic: ${input.topic || 'new menu item'}\nTone: ${input.tone || 'fun, edgy, vampire-themed'}\nTarget: Young professionals in Bucharest\n\nProvide:\n1. Catchy caption (max 150 characters)\n2. Longer description with emojis\n3. 15 relevant hashtags (mix of popular and niche)\n4. Best posting time recommendation\n5. Story ideas to complement the post`,\n  \n  facebook_post: `Create a Facebook post for Mitch:\nTopic: ${input.topic}\nTone: More detailed, community-focused\nInclude:\n- Engaging opening question\n- Story about the food/ingredient\n- Call to action\n- When/where to find us`,\n  \n  weekly_calendar: `Create a week of social media content for Mitch (Mon-Sun):\nTheme: ${input.theme || 'Transylvanian food culture'}\nFor each day provide:\n- Platform (Instagram/Facebook/TikTok)\n- Content type (photo/video/story)\n- Caption\n- Best posting time\n- Engagement strategy`,\n  \n  campaign: `Create a 2-week social media campaign:\nGoal: ${input.goal || 'Launch new menu item'}\nBudget: ${input.budget || 'Low-cost organic reach'}\nInclude:\n- Campaign theme\n- Content pillars\n- Posting schedule\n- Hashtag strategy\n- Engagement tactics\n- Success metrics`,\n  \n  engagement: `Create 10 responses to customer comments:\nScenario: ${input.scenario || 'positive review'}\nBrand voice: Friendly, slightly mysterious, Transylvanian-themed\nInclude emojis and encourage return visits`\n};\n\nconst selectedPrompt = prompts[input.content_type || 'instagram_post'];\n\nreturn [{\n  json: {\n    prompt: selectedPrompt,\n    content_type: input.content_type,\n    context: input\n  }\n}];"
+      },
+      "name": "Build Social Prompt",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://mcp-server:3000/tools/parallel-ai-query",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.prompt }}"
+            },
+            {
+              "name": "providers",
+              "value": "=[\"claude\"]"
+            },
+            {
+              "name": "temperature",
+              "value": "=0.9"
+            },
+            {
+              "name": "max_tokens",
+              "value": "=1000"
+            }
+          ]
+        }
+      },
+      "name": "Generate Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const aiResponse = $input.item.json;\nconst context = $node['Build Social Prompt'].json.context;\n\nreturn [{\n  json: {\n    platform: context.content_type,\n    content: aiResponse.results[0].response,\n    created_at: new Date().toISOString(),\n    mitch_tips: [\n      \"Always include vampire/Transylvanian emoji: 🧛‍♂️🏰🦇\",\n      \"Post during lunch (12-2pm) and dinner (6-8pm) hours\",\n      \"Use location tags: Bucharest, Romania\",\n      \"Engage with food bloggers and influencers\"\n    ]\n  }\n}];"
+      },
+      "name": "Format Social Content",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "name": "Return Content",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        1120,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Social Request": {
+      "main": [
+        [
+          {
+            "node": "Build Social Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Social Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Content": {
+      "main": [
+        [
+          {
+            "node": "Format Social Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Social Content": {
+      "main": [
+        [
+          {
+            "node": "Return Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
