@@ -6,11 +6,11 @@
   ],
   "cpu": "256",
   "memory": "512",
-  "executionRoleArn": "arn:aws:iam::337270123670:role/ecsTaskExecutionRole",
+  "executionRoleArn": "arn:aws:iam::000000000000:role/ecsTaskExecutionRole",
   "containerDefinitions": [
     {
       "name": "mitch-dev-api",
-      "image": "337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest",
+      "image": "000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest",
       "essential": true,
       "portMappings": [
         {
@@ -77,43 +77,43 @@
       "secrets": [
         {
           "name": "DATABASE_URL",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/database-url-STd3BM"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/database-url-STd3BM"
         },
         {
           "name": "REDIS_URL",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/redis-url-Mp3xb2"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/redis-url-Mp3xb2"
         },
         {
           "name": "JWT_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/jwt-secret-MJy3Ob"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/jwt-secret-MJy3Ob"
         },
         {
           "name": "STRIPE_SECRET_KEY",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/stripe-secret-key-RGyrPD"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/stripe-secret-key-RGyrPD"
         },
         {
           "name": "STRIPE_WEBHOOK_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/stripe-webhook-secret-9cfnwP"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/stripe-webhook-secret-9cfnwP"
         },
         {
           "name": "OPENAI_API_KEY",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/openai-api-key-Wy16ba"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/openai-api-key-Wy16ba"
         },
         {
           "name": "ANTHROPIC_API_KEY",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/anthropic-api-key-YA2rIC"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/anthropic-api-key-YA2rIC"
         },
         {
           "name": "SQUARE_ACCESS_TOKEN",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/square-access-token-Lwb4KS"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/square-access-token-Lwb4KS"
         },
         {
           "name": "SQUARE_APP_ID",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/square-app-id-RQgGQf"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/square-app-id-RQgGQf"
         },
         {
           "name": "SENTRY_DSN",
-          "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/sentry-dsn-GtmeSq"
+          "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/sentry-dsn-GtmeSq"
         }
       ],
       "logConfiguration": {
@@ -127,5 +127,5 @@
       }
     }
   ],
-  "taskRoleArn": "arn:aws:iam::337270123670:role/mitch-api-task-role"
+  "taskRoleArn": "arn:aws:iam::000000000000:role/mitch-api-task-role"
 }
