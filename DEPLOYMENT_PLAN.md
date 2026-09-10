@@ -61,7 +61,7 @@
 | VPC | ✅ Default VPC | Using existing |
 | RDS PostgreSQL | ✅ Running | `mitch-postgres.cdlh3juxdrbo.eu-west-2.rds.amazonaws.com` |
 | ElastiCache Redis | ✅ Running | `mitch-redis.0qttdd.0001.euw2.cache.amazonaws.com:6379` |
-| ECR Repository | ✅ Created | `337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api` |
+| ECR Repository | ✅ Created | `000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api` |
 | ECS Cluster | ✅ Created | `mitch-cluster` |
 | ECS Service | 🔄 Deploying | `mitch-dev-api` |
 | ALB | ✅ Running | `mitch-dev-alb-449769852.eu-west-2.elb.amazonaws.com` |
@@ -108,15 +108,15 @@ aws ecr create-repository \
 # Authenticate Docker to ECR
 aws ecr get-login-password --region eu-west-2 | \
   docker login --username AWS --password-stdin \
-  337270123670.dkr.ecr.eu-west-2.amazonaws.com
+  000000000000.dkr.ecr.eu-west-2.amazonaws.com
 
 # Build and push
 cd /home/godja/hospitality-saas
 npm run build
 docker build -t mitch-dev-api .
 docker tag mitch-dev-api:latest \
-  337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
-docker push 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+  000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+docker push 000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
 ```
 
 ### 3. Create RDS PostgreSQL
@@ -192,10 +192,10 @@ aws ecs register-task-definition \
   --requires-compatibilities FARGATE \
   --cpu 512 \
   --memory 1024 \
-  --execution-role-arn arn:aws:iam::337270123670:role/ecsTaskExecutionRole \
+  --execution-role-arn arn:aws:iam::000000000000:role/ecsTaskExecutionRole \
   --container-definitions '[{
     "name": "mitch-dev-api",
-    "image": "337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest",
+    "image": "000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest",
     "cpu": 512,
     "memory": 1024,
     "portMappings": [{"containerPort": 3000, "protocol": "tcp"}],
@@ -305,9 +305,9 @@ npm run build
 docker build -t mitch-dev-api .
 
 # 2. Push
-aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 337270123670.dkr.ecr.eu-west-2.amazonaws.com
-docker tag mitch-dev-api:latest 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
-docker push 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 000000000000.dkr.ecr.eu-west-2.amazonaws.com
+docker tag mitch-dev-api:latest 000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+docker push 000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
 
 # 3. Deploy
 aws ecs update-service --cluster mitch-cluster --service mitch-dev-api --force-new-deployment --region eu-west-2

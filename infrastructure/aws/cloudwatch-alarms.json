@@ -143,7 +143,7 @@
   ],
   "setupCommands": {
     "createSNSTopic": "aws sns create-topic --name mitch-alerts --region eu-west-2",
-    "subscribeEmail": "aws sns subscribe --topic-arn arn:aws:sns:eu-west-2:337270123670:mitch-alerts --protocol email --notification-endpoint YOUR_EMAIL@example.com --region eu-west-2",
-    "createAlarmExample": "aws cloudwatch put-metric-alarm --alarm-name mitch-api-high-cpu --metric-name CPUUtilization --namespace AWS/ECS --statistic Average --period 300 --threshold 80 --comparison-operator GreaterThanThreshold --evaluation-periods 2 --dimensions Name=ClusterName,Value=mitch-cluster Name=ServiceName,Value=mitch-dev-api --alarm-actions arn:aws:sns:eu-west-2:337270123670:mitch-alerts --region eu-west-2"
+    "subscribeEmail": "aws sns subscribe --topic-arn arn:aws:sns:eu-west-2:000000000000:mitch-alerts --protocol email --notification-endpoint YOUR_EMAIL@example.com --region eu-west-2",
+    "createAlarmExample": "aws cloudwatch put-metric-alarm --alarm-name mitch-api-high-cpu --metric-name CPUUtilization --namespace AWS/ECS --statistic Average --period 300 --threshold 80 --comparison-operator GreaterThanThreshold --evaluation-periods 2 --dimensions Name=ClusterName,Value=mitch-cluster Name=ServiceName,Value=mitch-dev-api --alarm-actions arn:aws:sns:eu-west-2:000000000000:mitch-alerts --region eu-west-2"
   }
 }

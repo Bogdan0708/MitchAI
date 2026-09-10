@@ -93,7 +93,7 @@ aws sns create-topic --name mitch-alerts --region eu-west-2
 
 # Subscribe your email
 aws sns subscribe \
-  --topic-arn arn:aws:sns:eu-west-2:337270123670:mitch-alerts \
+  --topic-arn arn:aws:sns:eu-west-2:000000000000:mitch-alerts \
   --protocol email \
   --notification-endpoint your@email.com \
   --region eu-west-2
@@ -109,7 +109,7 @@ aws cloudwatch put-metric-alarm \
   --comparison-operator GreaterThanThreshold \
   --evaluation-periods 2 \
   --dimensions Name=ClusterName,Value=mitch-cluster Name=ServiceName,Value=mitch-dev-api \
-  --alarm-actions arn:aws:sns:eu-west-2:337270123670:mitch-alerts \
+  --alarm-actions arn:aws:sns:eu-west-2:000000000000:mitch-alerts \
   --region eu-west-2
 ```
 
@@ -159,7 +159,7 @@ aws ecs describe-services \
 
 ```bash
 aws elbv2 describe-target-health \
-  --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:337270123670:targetgroup/mitch-dev-api-tg/506ab79f83d2f13d \
+  --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:000000000000:targetgroup/mitch-dev-api-tg/506ab79f83d2f13d \
   --region eu-west-2
 ```
 

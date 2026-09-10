@@ -523,9 +523,9 @@ The application is deployed on AWS with the following architecture:
 ```bash
 # Build and push Docker image
 docker build -t mitch-dev-api .
-aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 337270123670.dkr.ecr.eu-west-2.amazonaws.com
-docker tag mitch-dev-api:latest 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
-docker push 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 000000000000.dkr.ecr.eu-west-2.amazonaws.com
+docker tag mitch-dev-api:latest 000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
+docker push 000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-dev-api:latest
 
 # Force ECS redeploy
 aws ecs update-service --cluster mitch-cluster --service mitch-dev-api --force-new-deployment --region eu-west-2
@@ -534,7 +534,7 @@ aws ecs update-service --cluster mitch-cluster --service mitch-dev-api --force-n
 aws ecs describe-services --cluster mitch-cluster --services mitch-dev-api --region eu-west-2 --query 'services[0].{running:runningCount,desired:desiredCount,status:status}'
 
 # Check target health
-aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:337270123670:targetgroup/mitch-dev-api-tg/506ab79f83d2f13d --region eu-west-2
+aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:eu-west-2:000000000000:targetgroup/mitch-dev-api-tg/506ab79f83d2f13d --region eu-west-2
 ```
 
 ### Frontend Deployment (Amplify)

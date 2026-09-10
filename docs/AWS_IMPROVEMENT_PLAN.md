@@ -72,15 +72,15 @@ Currently handled by ALB. ✅
 
 ```bash
 # Login to ECR
-aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 337270123670.dkr.ecr.eu-west-2.amazonaws.com
+aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 000000000000.dkr.ecr.eu-west-2.amazonaws.com
 
 # Build image
 cd /home/godja/hospitality-saas
 docker build -t mitch-hospitality-api:latest -f Dockerfile --target production .
 
 # Tag and push
-docker tag mitch-hospitality-api:latest 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-hospitality-api:latest
-docker push 337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-hospitality-api:latest
+docker tag mitch-hospitality-api:latest 000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-hospitality-api:latest
+docker push 000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-hospitality-api:latest
 ```
 
 ### Step 2: Update ECS Task Definition
@@ -93,11 +93,11 @@ aws ecs register-task-definition \
   --requires-compatibilities FARGATE \
   --cpu 256 \
   --memory 512 \
-  --execution-role-arn arn:aws:iam::337270123670:role/ecsTaskExecutionRole \
+  --execution-role-arn arn:aws:iam::000000000000:role/ecsTaskExecutionRole \
   --container-definitions '[
     {
       "name": "mitch-api",
-      "image": "337270123670.dkr.ecr.eu-west-2.amazonaws.com/mitch-hospitality-api:latest",
+      "image": "000000000000.dkr.ecr.eu-west-2.amazonaws.com/mitch-hospitality-api:latest",
       "portMappings": [{"containerPort": 3000, "protocol": "tcp"}],
       "environment": [
         {"name": "NODE_ENV", "value": "production"},
@@ -105,8 +105,8 @@ aws ecs register-task-definition \
         {"name": "LOG_LEVEL", "value": "info"}
       ],
       "secrets": [
-        {"name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/db-url"},
-        {"name": "JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:eu-west-2:337270123670:secret:mitch/jwt-secret"}
+        {"name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/db-url"},
+        {"name": "JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:eu-west-2:000000000000:secret:mitch/jwt-secret"}
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
@@ -213,7 +213,7 @@ aws cloudwatch put-metric-alarm \
   --comparison-operator GreaterThanThreshold \
   --evaluation-periods 2 \
   --dimensions Name=ClusterName,Value=mitch-cluster Name=ServiceName,Value=mitch-dev-api \
-  --alarm-actions arn:aws:sns:eu-west-2:337270123670:alerts \
+  --alarm-actions arn:aws:sns:eu-west-2:000000000000:alerts \
   --region eu-west-2
 ```
 
