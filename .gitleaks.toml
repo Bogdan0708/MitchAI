@@ -1,0 +1,14 @@
+title = "MitchAI gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+regexes = [
+    "YOUR_TOKEN",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\\.\\.\\.",
+    "sk_test_placeholder",
+    "sk-placeholder",
+    "whsec_placeholder",
+    "placeholder-update-after-sql-creation",
+]
