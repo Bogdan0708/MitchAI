@@ -25,6 +25,24 @@
 > - GDPR readiness or compliance has **not been independently assessed**. Data-export and tenant-isolation code should not be interpreted as certification or legal assurance.
 > - Any prices or tiers represented in application fixtures, database configuration, or UI screens are **illustrative**, not a public commercial offer.
 
+[![CI](https://github.com/Bogdan0708/MitchAI/actions/workflows/ci.yml/badge.svg)](https://github.com/Bogdan0708/MitchAI/actions/workflows/ci.yml)
+
+## Automations
+Seven n8n agent workflows plus a local+cloud parallel workflow: see [`automations/n8n/`](automations/n8n/README.md) (diagram of the master orchestrator inside).
+
+## Deployment evidence
+- AWS: ECS Fargate + ECR + ALB + RDS PostgreSQL via `.github/workflows/deploy-aws.yml`; last green run 2026-02-12. Modules in `infrastructure/terraform-aws/`.
+- GCP: Cloud Run / Cloud SQL Terraform in `infrastructure/terraform/`, infra CLI in `infrastructure/cli/`.
+
+## Entry points
+- `src/services/ai/orchestrator.ts` — provider router with Redis cache and per-task token ceilings
+- `src/services/tenant/ai/*.provider.ts` — Claude, OpenAI, Gemini, Ollama, LM Studio, Perplexity adapters
+- `src/services/agents/webhook.router.ts` — WhatsApp Cloud API + Telegram agent
+- `src/services/tenant/compliance/` — HACCP module (temperature logs, corrective actions)
+- `database/schema.sql` — 53 row-level-security policies
+
+Tests: `npm test` (revision: see badge). Implementation evidence only; no production service or certification claimed.
+
 ## Overview
 
 Mitch AI Suite explores a multi-tenant hospitality application for menus, orders, reservations, reviews, content, analytics, and AI-assisted tasks. The primary implementation is a Node.js/TypeScript/Express backend, a Next.js frontend, and PostgreSQL persistence.
@@ -104,7 +122,7 @@ docker compose up -d postgres redis
 npm run dev
 ```
 
-The backend defaults to `http://localhost:3000`. See [QUICKSTART.md](QUICKSTART.md) for database initialization, frontend startup, and example health-check output.
+The backend defaults to `http://localhost:3000`. See [QUICKSTART.md](docs/QUICKSTART.md) for database initialization, frontend startup, and example health-check output.
 
 ### Frontend
 
@@ -190,11 +208,10 @@ MitchAI/
 ├── src/                    # Express API, services, middleware, routes, and tests
 ├── frontend/               # Next.js application
 ├── database/               # PostgreSQL schema, migrations, and seed data
-├── docs/                   # Additional technical documentation
+├── docs/                   # Additional technical documentation (incl. QUICKSTART.md)
 ├── scripts/                # Database and project scripts
 ├── docker-compose.yml      # Local supporting services
-├── package.json            # Backend scripts and dependencies
-└── QUICKSTART.md           # Local setup guide
+└── package.json            # Backend scripts and dependencies
 ```
 
 ## License

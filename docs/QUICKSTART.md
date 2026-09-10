@@ -295,4 +295,4 @@ npm install
 - [ ] Frontend dependencies installed and Next.js app started if needed
 - [ ] Type check, lint, tests, and builds run for the areas being changed
 
-For architecture and implemented-scope notes, see [README.md](README.md). For additional API details, see `docs/openapi.yaml` and the route implementations under `src/routes/`.
+For architecture and implemented-scope notes, see [README.md](../README.md). For additional API details, see `openapi.yaml` (in this `docs/` directory) and the route implementations under `src/routes/`.

@@ -7,7 +7,7 @@
  * - GmailClient: Basic parsing tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, jest as vi } from '@jest/globals';
 import { PriorityScorer } from '../../services/email/priority-scorer';
 import { DraftGenerator } from '../../services/email/draft-generator';
 import { GmailClient } from '../../services/email/gmail-client';
@@ -317,7 +317,7 @@ describe('DraftGenerator', () => {
 
   beforeEach(() => {
     mockOrchestrator = {
-      process: vi.fn().mockResolvedValue({
+      process: (vi.fn() as jest.Mock).mockResolvedValue({
         success: true,
         content: 'Dear Customer,\n\nThank you for your inquiry. We would be happy to help.\n\nBest regards,\nThe Team',
         model: 'test-model',

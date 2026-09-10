@@ -38,29 +38,12 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true
 
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: javascript-typescript
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:javascript-typescript"
+  # CodeQL analysis is handled by GitHub's default code scanning setup
+  # (Settings > Code security > Code scanning), not this advanced workflow.
+  # The advanced-workflow upload step was failing with "Code scanning is not
+  # enabled for this repository" because code scanning had never been turned
+  # on for this repo; default setup covers the same analysis without needing
+  # a job here.
 
   secrets-scan:
     name: Secret Scanning
