@@ -1,0 +1,100 @@
+{
+  "workflow": "multi-ai-parallel.json",
+  "workflow_name": "Multi-AI Provider Parallel Workflow",
+  "n8n_version": "2.38.7",
+  "n8n_workflow_id": "646dbe18-333c-45ba-b822-491a4a259913",
+  "captured": "2026-09-11",
+  "status": "error",
+  "method": "n8n CLI import:workflow + execute --id (see automations/n8n/evidence/README.md for why a manual-trigger copy was used instead of the real webhook)",
+  "synthetic_trigger_payload": {
+    "body": {
+      "prompt": "Suggest three specials for a rainy Tuesday",
+      "temperature": 0.6,
+      "max_tokens": 500
+    },
+    "headers": {},
+    "params": {},
+    "query": {}
+  },
+  "per_node": {
+    "Webhook Trigger": [
+      {
+        "executionStatus": "success",
+        "executionTime": 2,
+        "output": [
+          {
+            "json": {},
+            "pairedItem": {
+              "item": 0
+            }
+          }
+        ]
+      }
+    ],
+    "Synthetic Webhook Payload": [
+      {
+        "executionStatus": "success",
+        "executionTime": 1075,
+        "output": [
+          {
+            "json": {
+              "body": {
+                "prompt": "Suggest three specials for a rainy Tuesday",
+                "temperature": 0.6,
+                "max_tokens": 500
+              },
+              "headers": {},
+              "params": {},
+              "query": {}
+            },
+            "pairedItem": {
+              "item": 0
+            }
+          }
+        ]
+      }
+    ],
+    "Parse Request": [
+      {
+        "executionStatus": "success",
+        "executionTime": 16,
+        "output": [
+          {
+            "json": {
+              "prompt": "Suggest three specials for a rainy Tuesday",
+              "model_preferences": {
+                "lm_studio": true,
+                "openai": true,
+                "claude": true
+              },
+              "parameters": {
+                "temperature": 0.6,
+                "max_tokens": 500
+              },
+              "timestamp": "2026-09-11T22:47:11.217Z",
+              "request_id": "req_1789166831217"
+            },
+            "pairedItem": {
+              "item": 0
+            }
+          }
+        ]
+      }
+    ],
+    "LM Studio": [
+      {
+        "executionStatus": "error",
+        "executionTime": 45,
+        "error": {
+          "message": "Credentials not found",
+          "name": "NodeOperationError"
+        }
+      }
+    ]
+  },
+  "notes": [
+    "Parse Request output confirms the webhook-envelope fix: prompt=\"Suggest three specials for a rainy Tuesday\" and parameters.temperature/max_tokens=0.6/500 were correctly read from the synthetic payload body, not the 0.7/1000 fallback defaults that would appear if the .body unwrap were missing.",
+    "LM Studio node failed with \"Credentials not found\" because this workflow authenticates via an n8n credential (genericCredentialType/httpHeaderAuth) that does not exist in this fixture-only environment, and because no local LM Studio instance is running at http://lm-studio:1234 (that host is not part of this repo's docker-compose.yml). This is a legitimate failure path, distinct from the daily-operations mock-mcp 500 case.",
+    "n8n halted the run after the first node error (OpenAI GPT and Claude API never executed); their nodes have equivalent auth/reachability requirements (an OpenAI credential and a live api.anthropic.com key respectively) that this repo does not provide."
+  ]
+}

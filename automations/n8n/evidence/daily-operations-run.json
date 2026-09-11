@@ -1,0 +1,58 @@
+{
+  "workflow": "daily-operations.json",
+  "workflow_name": "🧛 Mitch - Daily Operations Assistant",
+  "n8n_version": "2.38.7",
+  "n8n_workflow_id": "08083746-a994-41b5-be19-2b7275e5398a",
+  "captured": "2026-09-11",
+  "method": "live production webhook on a running n8n container (docker compose --profile n8n-demo up postgres mcp-server n8n), imported via n8n CLI import:workflow and activated",
+  "runs": [
+    {
+      "label": "success (happy path, execution id 1)",
+      "request": {
+        "url": "http://localhost:5679/webhook/daily-operations",
+        "method": "POST",
+        "body": {
+          "operation_type": "daily_checklist",
+          "shift": "morning",
+          "day_of_week": "Tuesday",
+          "requested_by": "evidence-capture",
+          "location": "main-stall"
+        }
+      },
+      "http_status": 200,
+      "response": {
+        "success": true,
+        "operation_type": "daily_checklist",
+        "operational_guidance": "Recommend leaning into 3 traditional Romanian ingredients (cabbage, paprika, sour cream) for the new item. Estimated cost per portion is 8-10 RON with a target price of 25 RON, giving a healthy margin. This is a synthetic fixture response from automations/n8n/mock-mcp, not a real model output.",
+        "metadata": {
+          "requested_by": "evidence-capture",
+          "location": "main-stall",
+          "timestamp": "2026-09-11T22:42:46.790Z",
+          "priority": "normal"
+        },
+        "timestamp": "2026-09-11T22:42:46.902Z",
+        "action_required": false
+      }
+    },
+    {
+      "label": "failure (mock-mcp returns 500, execution id 2)",
+      "request": {
+        "url": "http://localhost:5679/webhook/daily-operations",
+        "method": "POST",
+        "body": {
+          "operation_type": "problem_solver",
+          "problem_description": "FORCE_500_ERROR_TEST",
+          "urgency": "High",
+          "requested_by": "evidence-capture"
+        }
+      },
+      "http_status": 500,
+      "response_raw": "{\"message\":\"Error in workflow\"}\nHTTP_STATUS:500",
+      "notes": "mock-mcp/server.js returns HTTP 500 whenever the request body contains the literal marker FORCE_500_ERROR_TEST (here embedded in problem_description, which the workflow interpolates into the prompt it sends to mcp-server). The Call Claude - Operations Assistant httpRequest node has no continueOnFail/error branch, so n8n surfaces a generic {\"message\":\"Error in workflow\"} to the webhook caller with HTTP 500; the underlying node error (visible in the n8n execution log) was the mock-mcp 500 body {\"error\":\"mock_mcp_simulated_failure\",...}."
+    }
+  ],
+  "notes": [
+    "mcp-server responses are fixtures from automations/n8n/mock-mcp/server.js, not real model output.",
+    "The success run confirms the webhook-envelope fix: metadata.requested_by/location in the response match the request body fields, which only resolve correctly because Process Operations Request now reads $input.item.json.body ?? $input.item.json instead of the flat shape used before this fix."
+  ]
+}
