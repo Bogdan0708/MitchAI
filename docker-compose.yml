@@ -56,6 +56,24 @@ services:
       postgres:
         condition: service_healthy
 
+  # Fixture-backed stand-in for the internal `mcp-server` host that the
+  # shipped n8n workflow exports call (http://mcp-server:3000/...). It is
+  # NOT part of the real MitchAI stack — it only exists so the n8n
+  # automations in automations/n8n/ can be imported and executed locally
+  # against synthetic responses. See automations/n8n/mock-mcp/server.js
+  # and automations/n8n/evidence/README.md.
+  mcp-server:
+    image: node:22-alpine
+    container_name: hospitality-mcp-mock
+    working_dir: /app
+    volumes:
+      - ./automations/n8n/mock-mcp:/app:ro
+    command: ["node", "server.js"]
+    ports:
+      - "3000:3000"
+    profiles:
+      - n8n-demo
+
   grafana:
     image: grafana/grafana:latest
     container_name: hospitality-grafana

@@ -42,7 +42,7 @@
           "parameters": []
         },
         "specifyBody": "json",
-        "jsonBody": "={{ \n  {\n    \"prompt\": $json.prompt || $json.question,\n    \"system_prompt\": $json.system_prompt || \"You are a business consultant for a Transylvanian street food business. Provide specific, actionable recommendations.\",\n    \"providers\": $json.providers || [\"anthropic\", \"openai\"],\n    \"temperature\": $json.temperature || 0.7,\n    \"max_tokens\": $json.max_tokens || 300\n  }\n}}",
+        "jsonBody": "={{ \n  {\n    \"prompt\": ($json.body && ($json.body.prompt || $json.body.question)) || $json.prompt || $json.question,\n    \"system_prompt\": ($json.body && $json.body.system_prompt) || $json.system_prompt || \"You are a business consultant for a Transylvanian street food business. Provide specific, actionable recommendations.\",\n    \"providers\": ($json.body && $json.body.providers) || $json.providers || [\"anthropic\", \"openai\"],\n    \"temperature\": ($json.body && $json.body.temperature) || $json.temperature || 0.7,\n    \"max_tokens\": ($json.body && $json.body.max_tokens) || $json.max_tokens || 300\n  }\n}}",
         "options": {
           "timeout": 30000
         }

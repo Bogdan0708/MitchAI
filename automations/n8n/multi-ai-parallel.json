@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Parse incoming request and prepare for parallel processing\nconst inputData = $input.item.json;\n\nreturn {\n  json: {\n    prompt: inputData.prompt || inputData.message,\n    model_preferences: inputData.model_preferences || {\n      lm_studio: true,\n      openai: true,\n      claude: true\n    },\n    parameters: {\n      temperature: inputData.temperature || 0.7,\n      max_tokens: inputData.max_tokens || 1000\n    },\n    timestamp: new Date().toISOString(),\n    request_id: `req_${Date.now()}`\n  }\n};"
+        "jsCode": "// Parse incoming request and prepare for parallel processing\nconst inputData = $input.item.json.body ?? $input.item.json;\n\nreturn {\n  json: {\n    prompt: inputData.prompt ?? inputData.message,\n    model_preferences: inputData.model_preferences || {\n      lm_studio: true,\n      openai: true,\n      claude: true\n    },\n    parameters: {\n      temperature: inputData.temperature || 0.7,\n      max_tokens: inputData.max_tokens || 1000\n    },\n    timestamp: new Date().toISOString(),\n    request_id: `req_${Date.now()}`\n  }\n};"
       },
       "id": "REDACTED",
       "name": "Parse Request",
