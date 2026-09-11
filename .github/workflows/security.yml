@@ -25,25 +25,66 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
-      - name: Run backend audit
-        run: npm audit --audit-level=high
+      # Blocking: production dependencies only. A high/critical finding here
+      # fails the workflow — this is the enforced gate.
+      - name: Run backend audit (production deps, blocking)
+        run: npm audit --audit-level=high --omit=dev
+
+      # Informational only: includes devDependencies and moderate findings,
+      # surfaced for visibility but never fails the build.
+      - name: Run backend audit (full tree, informational)
+        run: npm audit --audit-level=moderate
         continue-on-error: true
 
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
 
-      - name: Run frontend audit
+      # Blocking: production dependencies only. A high/critical finding here
+      # fails the workflow — this is the enforced gate.
+      - name: Run frontend audit (production deps, blocking)
         working-directory: frontend
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high --omit=dev
+
+      # Informational only: includes devDependencies and moderate findings,
+      # surfaced for visibility but never fails the build.
+      - name: Run frontend audit (full tree, informational)
+        working-directory: frontend
+        run: npm audit --audit-level=moderate
         continue-on-error: true
 
-  # CodeQL analysis is handled by GitHub's default code scanning setup
-  # (Settings > Code security > Code scanning), not this advanced workflow.
-  # The advanced-workflow upload step was failing with "Code scanning is not
-  # enabled for this repository" because code scanning had never been turned
-  # on for this repo; default setup covers the same analysis without needing
-  # a job here.
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      # This step uploads SARIF results to GitHub code scanning. As of the
+      # last check (2026-09-11) the repository's code scanning was reported
+      # as `state: "not-configured"` via
+      # `gh api repos/Bogdan0708/MitchAI/code-scanning/default-setup`, and an
+      # advanced-workflow upload can fail with:
+      #   "Code scanning is not enabled for this repository"
+      # if code scanning has not been turned on under
+      # Settings > Code security > Code scanning. continue-on-error is set
+      # so the analysis still runs (and uploads once enabled) without
+      # blocking other jobs; enabling code scanning for this repo is an
+      # owner action, not something fixable from a workflow file.
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        continue-on-error: true
 
   secrets-scan:
     name: Secret Scanning
@@ -57,3 +98,9 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --only-verified
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
