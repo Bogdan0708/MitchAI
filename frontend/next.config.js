@@ -4,7 +4,11 @@ const nextConfig = {
   output: 'export',
   trailingSlash: true,
   images: {
-    domains: ['localhost', 'api.mitch-ai.com', 'api.mitchfromtransylvania.com'],
+    remotePatterns: [
+      { hostname: 'localhost' },
+      { hostname: 'api.mitch-ai.com' },
+      { hostname: 'api.mitchfromtransylvania.com' },
+    ],
     unoptimized: true,
   },
 }
