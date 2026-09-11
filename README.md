@@ -61,7 +61,7 @@ Checked-in code includes:
 - Docker Compose configuration for PostgreSQL, Redis, Qdrant, n8n, and optional Grafana infrastructure.
 - Jest-based backend tests and a CI workflow for type checking, linting, tests, backend builds, and frontend builds.
 
-Some integrations need provider accounts and environment configuration. The Compose file configures an n8n service, but this repository does not include n8n workflow definitions; n8n should therefore be treated as configured integration infrastructure rather than a delivered automation library. Ollama is an optional local-model integration and requires a separately running Ollama service and model.
+Some integrations need provider accounts and environment configuration. Eight sanitised n8n workflow exports are published under `automations/n8n/` (Master Orchestrator routing Menu/Social/Strategy/Feedback/Operations, plus a local+cloud parallel workflow); n8n runs as the workflow plane in `docker-compose`, and Ollama/LM Studio are optional local-inference providers.
 
 ## Security and privacy posture
 
@@ -86,6 +86,22 @@ Configured local integration infrastructure:
 - Qdrant for vector storage
 - n8n for workflow automation infrastructure
 - Grafana via the optional monitoring profile
+```
+
+```mermaid
+graph TD
+    Browser --> Dashboard[Next.js Dashboard]
+    Dashboard --> API[Express API]
+    Webhook[WhatsApp / Telegram] --> Router[Agent Webhook Router]
+    Router --> API
+    API --> Orchestrator[Provider Orchestrator - 7 providers]
+    Orchestrator --> Ollama[Ollama - local]
+    Orchestrator --> LMStudio[LM Studio - local]
+    Orchestrator --> Cloud[Cloud providers]
+    API --> Postgres[(PostgreSQL + RLS)]
+    API --> Redis[(Redis)]
+    API --> Qdrant[(Qdrant)]
+    API --> N8N[n8n workflow plane]
 ```
 
 ### Primary stack

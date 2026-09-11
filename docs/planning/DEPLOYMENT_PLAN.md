@@ -111,7 +111,7 @@ aws ecr get-login-password --region eu-west-2 | \
   000000000000.dkr.ecr.eu-west-2.amazonaws.com
 
 # Build and push
-cd /home/godja/hospitality-saas
+cd <repo-root>
 npm run build
 docker build -t mitch-dev-api .
 docker tag mitch-dev-api:latest \
@@ -300,7 +300,7 @@ aws ec2 authorize-security-group-ingress \
 
 ```bash
 # 1. Build
-cd /home/godja/hospitality-saas
+cd <repo-root>
 npm run build
 docker build -t mitch-dev-api .
 

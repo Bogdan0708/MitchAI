@@ -1,7 +1,7 @@
 # MITCH HOSPITALITY SAAS - STRATEGIC REVIEW & EXECUTION PLAN
 
 **Date:** December 2024
-**Project Location:** `/home/godja/hospitality-saas`
+**Project Location:** `<repo-root>`
 **Prepared by:** Senior SaaS Architect, Hospitality Industry Strategist, AI Automation Consultant
 
 ---

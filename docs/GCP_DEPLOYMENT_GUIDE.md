@@ -48,7 +48,7 @@ Given your credits cover 6+ months, go straight to Production tier to avoid cold
 
 ```bash
 # Set gcloud path (add to ~/.bashrc for persistence)
-export PATH="$PATH:/home/godja/google-cloud-sdk/bin"
+export PATH="$PATH:<local-path>/google-cloud-sdk/bin"
 
 # Verify authentication
 gcloud auth list
@@ -111,7 +111,7 @@ gcloud artifacts repositories create hospitality-saas \
 ### Phase 5: Build and Push Docker Images (10 min)
 
 ```bash
-cd /home/godja/hospitality-saas
+cd <repo-root>
 
 # Configure Docker for Artifact Registry
 gcloud auth configure-docker europe-west2-docker.pkg.dev
@@ -190,7 +190,7 @@ curl $(gcloud run services describe hospitality-api --region=europe-west2 --form
 For repeatable deployments, use the existing Terraform setup:
 
 ```bash
-cd /home/godja/hospitality-saas/infrastructure/terraform
+cd <repo-root>/infrastructure/terraform
 
 # Copy and edit variables
 cp terraform.tfvars.example terraform.tfvars

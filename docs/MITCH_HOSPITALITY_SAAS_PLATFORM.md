@@ -320,20 +320,6 @@ Launch Day: Live posting, review monitoring
 
 # TECHNICAL IMPLEMENTATION
 
-## Existing Components to Integrate
-
-| Component | Location | Reusability | Integration Priority |
-|-----------|----------|-------------|---------------------|
-| MCP Server | `/mnt/c/Dev/mitch/main/mitch-production/mcp-server/` | HIGH | P0 - Core gateway |
-| n8n Workflows (7) | `/mnt/c/Dev/mitch/main/mitch-production/workflows/` | MEDIUM | P0 - Business logic |
-| PostgreSQL Schema | `/mnt/c/Dev/mitch/main/mitch-production/database/` | HIGH | P0 - Data layer |
-| Social Intel | `/mnt/c/Dev/ai-agents/social-media-agents/` | MEDIUM | P1 - Social features |
-| MitchCoin | `/mnt/c/Dev/blockchain/mitch-coin/` | HIGH | P1 - Loyalty system |
-| Mitch Chain | `/mnt/c/Dev/blockchain/coin-blockchain/mitch-chain/` | MEDIUM | P2 - AI credits |
-| NPU Image Gen | `/mnt/c/MitchNPUGenerator/` | MEDIUM | P1 - Image service |
-| RAG Framework | `/mnt/c/Dev/mitch/main/agents/awesome-llm-apps/rag_tutorials/` | HIGH | P1 - Knowledge base |
-| Voice Agents | `/mnt/c/Dev/mitch/main/agents/awesome-llm-apps/voice_ai_agents/` | MEDIUM | P2 - Voice service |
-| Monitoring Stack | `/mnt/c/Dev/mitch/main/mitch-production/monitoring/` | HIGH | P0 - Observability |
 
 ## AI Provider Cost Comparison
 
@@ -508,8 +494,8 @@ GET  /api/v1/loyalty/history        # Transaction history
 
 1. **Create Unified Repository**
    ```bash
-   mkdir /mnt/c/Dev/mitch-hospitality-platform
-   cd /mnt/c/Dev/mitch-hospitality-platform
+   mkdir <local-path>/mitch-hospitality-platform
+   cd <local-path>/mitch-hospitality-platform
    git init
    ```
 

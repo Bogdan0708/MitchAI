@@ -39,7 +39,7 @@ Unify existing components into a multi-tenant platform with investor demo capabi
 | TEST-001 | Infrastructure integration tests | P1 | 5 |
 
 **Deliverables:**
-- Unified Docker Compose file at `/mnt/c/Dev/mitch-hospitality-platform/docker-compose.yml`
+- Unified Docker Compose file at `<local-path>/Dev/mitch-hospitality-platform/docker-compose.yml`
 - Multi-tenant database schema
 - API Gateway with authentication
 - Development setup documentation
@@ -58,7 +58,7 @@ Unify existing components into a multi-tenant platform with investor demo capabi
 | MCP-007 | Create provider health monitoring | P1 | 3 |
 | TEST-002 | MCP server unit and integration tests | P1 | 3 |
 
-**Source file to extend:** `/mnt/c/Dev/mitch/main/mitch-production/mcp-server/server.js`
+**Source file to extend:** `<local-path>/Dev/mitch/main/mitch-production/mcp-server/server.js`
 
 ### Sprint 3: n8n Workflow Adaptation (Weeks 5-6)
 **Story Points:** 45
@@ -76,7 +76,7 @@ Unify existing components into a multi-tenant platform with investor demo capabi
 | N8N-009 | Implement workflow usage tracking | P1 | 3 |
 | TEST-003 | End-to-end workflow tests | P0 | 2 |
 
-**Workflow location:** `/mnt/c/Dev/mitch/main/mitch-production/workflows/`
+**Workflow location:** `<local-path>/Dev/mitch/main/mitch-production/workflows/`
 
 ### Sprint 4: Dashboard & Demo Environment (Weeks 7-8)
 **Story Points:** 40
@@ -99,28 +99,28 @@ Unify existing components into a multi-tenant platform with investor demo capabi
 ## Phase 2: AI Feature Expansion (Weeks 9-16)
 
 ### 2.1 AI Menu Innovation System (Weeks 9-10)
-- Integrate NPU image generator from `/mnt/c/MitchNPUGenerator/`
+- Integrate NPU image generator from `<local-path>/MitchNPUGenerator/`
 - Build menu item description generation API
 - Create seasonal menu recommendation engine
 - Implement price optimization
 - Add nutritional analysis and allergen tagging
 
 ### 2.2 Social Media Automation (Weeks 11-12)
-- Integrate social media agents from `/mnt/c/Dev/ai-agents/social-media-agents/`
+- Integrate social media agents from `<local-path>/Dev/ai-agents/social-media-agents/`
 - Build multi-platform content generation pipeline
 - Add Perplexity integration for trend research
 - Create automated scheduling with Buffer/Hootsuite APIs
 - Implement engagement analytics dashboard
 
 ### 2.3 Customer Feedback Intelligence (Weeks 13-14)
-- Enhance RAG system from `/mnt/c/Dev/mitch/main/agents/awesome-llm-apps/rag_tutorials/`
+- Enhance RAG system from `<local-path>/Dev/mitch/main/agents/awesome-llm-apps/rag_tutorials/`
 - Build multi-platform review aggregation
 - Implement sentiment analysis with actionable insights
 - Create automated response generation
 - Add complaint escalation workflow
 
 ### 2.4 Blockchain Loyalty Integration (Weeks 15-16)
-- Integrate MitchCoin ERC-20 from `/mnt/c/Dev/blockchain/mitch-coin/`
+- Integrate MitchCoin ERC-20 from `<local-path>/Dev/blockchain/mitch-coin/`
 - Build token earning/redemption API
 - Create wallet integration (RainbowKit)
 - Implement transaction history and balance tracking
@@ -131,21 +131,21 @@ Unify existing components into a multi-tenant platform with investor demo capabi
 ## Phase 3: Voice AI & Advanced Features (Weeks 17-24)
 
 ### 3.1 Voice AI Phone Agent (Weeks 17-20)
-- Integrate voice agents from `/mnt/c/Dev/mitch/main/agents/awesome-llm-apps/voice_ai_agents/`
+- Integrate voice agents from `<local-path>/Dev/mitch/main/agents/awesome-llm-apps/voice_ai_agents/`
 - Build Twilio/Vonage integration for phone orders
 - Implement real-time transcription (Whisper)
 - Create multi-language support (25+ languages)
 - Add escalation to human staff
 
 ### 3.2 Business Intelligence Dashboard (Weeks 21-22)
-- Extend Grafana dashboards from `/mnt/c/Dev/mitch/main/mitch-production/monitoring/`
+- Extend Grafana dashboards from `<local-path>/Dev/mitch/main/mitch-production/monitoring/`
 - Build real-time revenue tracking
 - Create AI cost monitoring per tenant
 - Implement menu performance analytics
 - Add competitor price monitoring
 
 ### 3.3 Mitch Chain AI Credits (Weeks 23-24)
-- Integrate Mitch Chain from `/mnt/c/Dev/blockchain/coin-blockchain/mitch-chain/`
+- Integrate Mitch Chain from `<local-path>/Dev/blockchain/coin-blockchain/mitch-chain/`
 - Build AI credits purchase/usage system
 - Implement on-chain transaction logging
 - Create cross-tenant loyalty ecosystem
@@ -310,12 +310,12 @@ Unify existing components into a multi-tenant platform with investor demo capabi
 
 | File Path | Purpose | Phase |
 |-----------|---------|-------|
-| `/mnt/c/Dev/mitch/main/mitch-production/mcp-server/server.js` | Multi-LLM routing - extend for multi-tenant | 1 |
-| `/mnt/c/Dev/mitch/main/mitch-production/database/init.sql` | PostgreSQL schema - add tenant_id | 1 |
-| `/mnt/c/Dev/mitch/main/mitch-production/workflows/*.json` | n8n workflows - migrate all 7 | 1 |
-| `/mnt/c/Dev/blockchain/mitch-coin/contracts/MitchCoin.sol` | ERC-20 token - integrate with API | 2 |
-| `/mnt/c/Dev/mitch/main/agents/awesome-llm-apps/voice_ai_agents/` | Voice agents - adapt for phone orders | 3 |
-| `/mnt/c/Dev/blockchain/coin-blockchain/mitch-chain/` | Cosmos SDK chain - AI credits system | 3 |
+| `<local-path>/Dev/mitch/main/mitch-production/mcp-server/server.js` | Multi-LLM routing - extend for multi-tenant | 1 |
+| `<local-path>/Dev/mitch/main/mitch-production/database/init.sql` | PostgreSQL schema - add tenant_id | 1 |
+| `<local-path>/Dev/mitch/main/mitch-production/workflows/*.json` | n8n workflows - migrate all 7 | 1 |
+| `<local-path>/Dev/blockchain/mitch-coin/contracts/MitchCoin.sol` | ERC-20 token - integrate with API | 2 |
+| `<local-path>/Dev/mitch/main/agents/awesome-llm-apps/voice_ai_agents/` | Voice agents - adapt for phone orders | 3 |
+| `<local-path>/Dev/blockchain/coin-blockchain/mitch-chain/` | Cosmos SDK chain - AI credits system | 3 |
 
 ---
 
@@ -323,12 +323,12 @@ Unify existing components into a multi-tenant platform with investor demo capabi
 
 ```bash
 # Create unified project directory
-mkdir -p /mnt/c/Dev/mitch-hospitality-platform
+mkdir -p <local-path>/Dev/mitch-hospitality-platform
 
 # Clone/link existing components
-ln -s /mnt/c/Dev/mitch/main/mitch-production ./mitch-core
-ln -s /mnt/c/Dev/blockchain/mitch-coin ./loyalty-token
-ln -s /mnt/c/Dev/mitch/main/agents/awesome-llm-apps ./ai-agents
+ln -s <local-path>/Dev/mitch/main/mitch-production ./mitch-core
+ln -s <local-path>/Dev/blockchain/mitch-coin ./loyalty-token
+ln -s <local-path>/Dev/mitch/main/agents/awesome-llm-apps ./ai-agents
 
 # Start development stack
 docker-compose up -d
